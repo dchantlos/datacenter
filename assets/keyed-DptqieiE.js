@@ -1,0 +1,1 @@
+import{C as e,I as t,b as n,w as r}from"./runtime-CYW5o-nm.js";var i=e(class extends r{constructor(){super(...arguments),this.key=t}render(e,t){return this.key=e,t}update(e,[t,r]){return t!==this.key&&(n(e),this.key=t),r}});export{i as t};
