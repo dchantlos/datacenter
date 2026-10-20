@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+
+# Planning documents, including internal ones; kept out of this public repo.
+docs/
