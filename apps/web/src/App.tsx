@@ -1185,6 +1185,7 @@ export default function App() {
             }}
             onDetails={(key) => toolsRef.current?.showCandidate(candidates.get(key)!, false)}
             measuring={toMeasure.length}
+            onRerun={() => void startRun()}
           />
         ) : (
           <ParcelCard selection={selection} rules={rules} onClose={closeCard} onZoom={zoomTo} outcome={outcome} onBack={run ? closeCard : undefined} />

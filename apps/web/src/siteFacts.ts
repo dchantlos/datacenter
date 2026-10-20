@@ -14,7 +14,7 @@ import * as labelPointOperator from "@arcgis/core/geometry/operators/labelPointO
 import * as unionOperator from "@arcgis/core/geometry/operators/unionOperator.js";
 import { CRITERIA, type Fact, type FloodMapSource, type Nearest, type SiteFacts, type SlopeStats } from "./criteria";
 import { geodeticAcres, parcelKey, type ParcelFacts } from "./parcels";
-import { queryAll } from "./queries";
+import { httpStatusOf, queryAll, retrying } from "./queries";
 import { sourceById } from "./sources";
 import type { LayerResolver } from "./webmap";
 
@@ -172,19 +172,23 @@ export async function measureSlope({ facts, developable }: SiteResult, signal: A
   const center = labelPointOperator.execute(developable);
   const groundPixel = Math.max(MIN_PIXEL_M, Math.sqrt((facts.developableAcres.value * SQ_M_PER_ACRE) / MAX_SLOPE_PIXELS));
   const mapPixel = groundPixel / Math.cos(((center.latitude ?? 0) * Math.PI) / 180);
-  const { data } = await esriRequest(`${sourceById("terrain").url}/computeStatisticsHistograms`, {
-    method: "post",
-    query: {
-      f: "json",
-      geometry: JSON.stringify(developable.toJSON()),
-      geometryType: "esriGeometryPolygon",
-      renderingRule: JSON.stringify({ rasterFunction: "Slope Degrees" }),
-      pixelSize: JSON.stringify({ x: mapPixel, y: mapPixel, spatialReference: developable.spatialReference.toJSON() }),
-    },
-    responseType: "json",
-    timeout: 45_000,
+  const { data } = await retrying(
+    () =>
+      esriRequest(`${sourceById("terrain").url}/computeStatisticsHistograms`, {
+        method: "post",
+        query: {
+          f: "json",
+          geometry: JSON.stringify(developable.toJSON()),
+          geometryType: "esriGeometryPolygon",
+          renderingRule: JSON.stringify({ rasterFunction: "Slope Degrees" }),
+          pixelSize: JSON.stringify({ x: mapPixel, y: mapPixel, spatialReference: developable.spatialReference.toJSON() }),
+        },
+        responseType: "json",
+        timeout: 45_000,
+        signal,
+      }),
     signal,
-  });
+  );
   const histogram = data?.histograms?.[0] as { min: number; max: number; size: number; counts: number[] } | undefined;
   const mean = data?.statistics?.[0]?.mean as number | undefined;
   if (!histogram || mean === undefined) throw new Error("No slope data for this parcel");
@@ -252,6 +256,8 @@ export async function settle<T>(promise: Promise<T>, signal: AbortSignal): Promi
   } catch (error) {
     signal.throwIfAborted();
     const message = error instanceof Error ? error.message : String(error);
+    const status = httpStatusOf(error);
+    if (status >= 500) return { status: "unknown", reason: `Source failed (HTTP ${status})` };
     const offline = /fetch|network|timeout|timed out|failed to load|reach|reset/i.test(message);
     return { status: "unknown", reason: offline ? "Source did not respond" : message };
   }

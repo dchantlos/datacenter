@@ -1401,6 +1401,12 @@ input.wbar:focus-visible::-moz-range-thumb {
   gap: 8px;
 }
 
+.rwarn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .rempty {
   margin: 0;
   padding: 16px;

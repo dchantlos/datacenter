@@ -58,6 +58,33 @@ const wantsCoverage = (facts: SiteFacts) =>
 /** True while the run still owes this parcel its slope or flood-map coverage. */
 export const hasSkipped = (c: Candidate) => isNotMeasured(c.facts.slope) || wantsCoverage(c.facts);
 
+/** Fetched once for the whole area, so one failed request leaves every parcel without the fact. */
+const AREA_WIDE = [
+  ["flood", "Flood zones"],
+  ["wetlands", "Wetlands"],
+  ["habitat", "Critical habitat"],
+  ["federal", "Federal lands"],
+  ["transmission", "Transmission lines"],
+  ["road", "Major roads"],
+  ["groundwater", "Groundwater basins"],
+  ["neighbours", "Neighbouring parcels"],
+] as const;
+
+/** Area-wide sources that failed during the run, with the HTTP status when the server sent one. */
+export function failedSources(run: AnalysisRun): { title: string; httpStatus: string | null }[] {
+  const [first] = run.candidates;
+  if (!first) return [];
+  return AREA_WIDE.flatMap(([fact, title]) => {
+    const f = first.facts[fact];
+    if (f.status !== "unknown" || isNotMeasured(f)) return [];
+    const same = run.candidates.every((c) => {
+      const other = c.facts[fact];
+      return other.status === "unknown" && other.reason === f.reason;
+    });
+    return same ? [{ title, httpStatus: /(?:status: |HTTP )(\d{3})/.exec(f.reason)?.[1] ?? null }] : [];
+  });
+}
+
 // Slope is the only expensive per-parcel request and depends only on the data, so it is cached across runs.
 const slopeCache = new Map<string, SlopeStats>();
 let runCount = 0;

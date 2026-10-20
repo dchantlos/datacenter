@@ -1,7 +1,7 @@
 import "@esri/calcite-components/components/calcite-loader";
 import { useEffect, useRef, type RefObject } from "react";
 import type { AnalysisRun, Candidate } from "../analysis";
-import { floodSourceOf } from "../analysis";
+import { failedSources, floodSourceOf } from "../analysis";
 import { exclusionReasons, type Ranking, type SiteOutcome } from "../criteria";
 import type { ShortlistEntry } from "../store";
 import WhyBox from "./WhyBox";
@@ -30,6 +30,7 @@ interface Props {
   onOpenEntry: (entry: ShortlistEntry) => void;
   /** Parcels a criteria change brought back into play, still being measured. */
   measuring: number;
+  onRerun: () => void;
 }
 
 /** The mockup's right panel: ranked list (or the shortlist), "why" box for the selected parcel, and actions. */
@@ -38,6 +39,7 @@ export default function Results(props: Props) {
   const listRef = useRef<HTMLUListElement>(null);
   const { ranked, counts } = ranking;
   const reasons = exclusionReasons(ranking);
+  const failed = failedSources(run);
   const showing = shortlist.size > 0 ? view : "ranked";
   const isShortlisted = selected ? shortlist.has(selected.key) : false;
 
@@ -81,6 +83,17 @@ export default function Results(props: Props) {
               </span>
               {counts.unknown > 0 && <span className="chip chip--warn">{counts.unknown.toLocaleString("en-US")} unknown</span>}
             </div>
+            {failed.length > 0 && (
+              <div className="caveat rwarn" role="alert">
+                <span>
+                  {failed.map((f) => (f.httpStatus ? `${f.title} (HTTP ${f.httpStatus})` : f.title)).join(", ")} didn't load for this run, so every
+                  parcel is missing {failed.length === 1 ? "it" : "them"} and the results are unreliable. This is usually temporary.
+                </span>
+                <button type="button" className="btn btn--s" onClick={props.onRerun}>
+                  Run again
+                </button>
+              </div>
+            )}
             {props.measuring > 0 && (
               <span className="pv__busy" aria-live="polite">
                 <calcite-loader inline label="Measuring" scale="s" />
