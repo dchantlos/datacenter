@@ -1,1 +1,0 @@
-import{t as e}from"./FeatureLikeLayerView-B3BYzTdC.js";var t=class extends e{constructor(){super(...arguments),this.layer=null}};export{t};

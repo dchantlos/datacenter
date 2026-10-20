@@ -1,1 +1,0 @@
-import{t as e}from"./request-2p0npn_f.js";async function t(t,n){return(await e(t,{responseType:`image`,...n})).data}export{t};
