@@ -16,7 +16,7 @@ This app brings it together on one map and does the screening in a way anyone ca
 - **Repeatable.** The same inputs always give the same ranking. No score is produced by AI.
 - **Explained.** Each site shows why it ranks where it does: the raw value, score, weight and contribution of every factor.
 
-It is the first half of a larger workflow: ArcGIS finds and explains the best land, Podium designs the data center, and ArcGIS shows the returned designs on the real site so they can be compared. This repository covers the ArcGIS side, up to the design brief.
+It is the first half of a larger workflow: ArcGIS finds and explains the best land, Podium designs the data center, and ArcGIS shows the returned designs on the real site so they can be compared. This repository covers the ArcGIS side: the screening, the design brief, and the 3D review of the design that comes back.
 
 ## What you can do
 
@@ -30,6 +30,7 @@ It is the first half of a larger workflow: ArcGIS finds and explains the best la
    - Weighted preferences (default weight): distance to transmission lines of 115 kV or more (30), flat share (25), distance to a primary road (20), adjacent parcels of 40 acres or more (15), groundwater basin designation (10).
 5. **Run the analysis.** Every candidate parcel in the area is checked, slope is measured with USGS 3DEP, and the parcels that pass are ranked. Changing rules or weights afterwards re-ranks the results without a new run.
 6. **Shortlist and brief.** Shortlist sites and create a scenario: a design brief with the site boundary, the buildable area after a setback, no-build areas, ground elevation and the data sources used. Review it, approve it, download it as JSON, and copy the site boundary into Podium.
+7. **Review Podium's design in 3D.** Import the 3D model (GLB) exported from Podium. Each building is placed where Podium put it, on the real parcel and terrain.
 
 An in-app guide walks through each step.
 
@@ -40,7 +41,7 @@ An in-app guide walks through each step.
 | Live preview, area, data check, criteria, ranking | Built |
 | Shortlist, scenarios and design brief (JSON download) | Built |
 | Send the approved brief to Podium | By hand: copy the boundary into Podium's Coordinate Entry and type the brief's numbers into its data center generator |
-| Review returned designs in 3D | Planned: import designs exported from Podium as 3D models (GLB) |
+| Review returned designs in 3D | Built: import the 3D model (GLB) exported from Podium; each building is placed on the parcel and set on the terrain |
 
 ## Data sources
 

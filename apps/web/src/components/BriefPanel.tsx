@@ -38,6 +38,7 @@ interface Props {
   onDelete: () => void;
   onOpenVersion: (uid: string) => void;
   onZoom: () => void;
+  onReview3D: () => void;
   onClose: () => void;
   onBack?: () => void;
 }
@@ -96,7 +97,7 @@ export default function BriefPanel(props: Props) {
   );
 }
 
-function Edit({ scenario: s, onChange, onRetryElevation, onDelete, onReview }: Props & { onReview: () => void }) {
+function Edit({ scenario: s, onChange, onRetryElevation, onDelete, onReview, onReview3D }: Props & { onReview: () => void }) {
   const b = s.brief;
   const problems = briefProblems(s);
   const zone = utmEpsg(s.site.anchor.lon) - 32600;
@@ -145,7 +146,7 @@ function Edit({ scenario: s, onChange, onRetryElevation, onDelete, onReview }: P
             </dd>
           </div>
         </dl>
-        <CopyForPodium scenario={s} />
+        <CopyForPodium scenario={s} onReview3D={onReview3D} />
       </div>
 
       <div className="sec">
@@ -225,7 +226,7 @@ function Edit({ scenario: s, onChange, onRetryElevation, onDelete, onReview }: P
   );
 }
 
-function Review({ scenario: s, appLink, onApprove, onNewVersion, onEdit }: Props & { onEdit: () => void }) {
+function Review({ scenario: s, appLink, onApprove, onNewVersion, onReview3D, onEdit }: Props & { onEdit: () => void }) {
   const [request, setRequest] = useState<BriefRequest | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const frozen = s.state === "approved";
@@ -296,7 +297,7 @@ function Review({ scenario: s, appLink, onApprove, onNewVersion, onEdit }: Props
           </li>
         </ul>
         <p className="note note--left">Never sent: owner names or mailing addresses (never requested), assessed values, or any other candidate.</p>
-        <CopyForPodium scenario={s} />
+        <CopyForPodium scenario={s} onReview3D={onReview3D} />
         {failed && <p className="caveat">Couldn't build the request: {failed}</p>}
         {request && (
           <details className="brief__json">
@@ -340,8 +341,8 @@ function positions(g: GeoJsonPolygon | null) {
   return rings.reduce((n, ring) => n + ring.length - 1, 0);
 }
 
-/** Hand-off to Podium: the outline in the form Podium's Coordinate Entry accepts. */
-function CopyForPodium({ scenario }: { scenario: Scenario }) {
+/** Hand-off to Podium: the outline in the form Podium's Coordinate Entry accepts, and the way back for its design. */
+function CopyForPodium({ scenario, onReview3D }: { scenario: Scenario; onReview3D: () => void }) {
   const [message, setMessage] = useState<string | null>(null);
   const copy = async () => {
     try {
@@ -358,6 +359,10 @@ function CopyForPodium({ scenario }: { scenario: Scenario }) {
     <div className="podium-copy">
       <button type="button" className="btn btn--ghost" onClick={() => void copy()}>
         Copy boundary for Podium
+      </button>
+      <button type="button" className="btn btn--ghost" onClick={onReview3D}>
+        <calcite-icon icon="cube" scale="s" />
+        Review in 3D
       </button>
       {PODIUM_URL && (
         <a className="link" href={PODIUM_URL} target="_blank" rel="noreferrer">

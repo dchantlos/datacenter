@@ -8,7 +8,7 @@ const signedArea = (ring: number[][]) => {
   return sum / 2;
 };
 
-function contains(ring: number[][], [x, y]: number[]) {
+export function contains(ring: number[][], [x, y]: number[]) {
   let inside = false;
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
     const [xi, yi] = ring[i];

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import "@arcgis/map-components/components/arcgis-map";
 import "@arcgis/map-components/components/arcgis-search";
 import "@arcgis/map-components/components/arcgis-zoom";
@@ -84,6 +84,20 @@ import RunsPanel from "./components/RunsPanel";
 import LivePreview, { type PreviewStatus } from "./components/LivePreview";
 import type { SiteCheckState } from "./components/SiteCheck";
 import Hud from "./components/Hud";
+
+// The 3D view loads only when a design is reviewed. A failed load (offline, or a tab older than the last deploy) must not blank the app.
+const Review3D = lazy(() =>
+  import("./components/Review3D").catch(() => ({
+    default: ({ onClose }: { scenario: Scenario; onClose: () => void }) => (
+      <div className="map-status glass" role="alert">
+        Couldn't load the 3D view. Check your connection and reload.{" "}
+        <button type="button" className="link" onClick={onClose}>
+          Close
+        </button>
+      </div>
+    ),
+  })),
+);
 
 const HIGHLIGHT = new SimpleFillSymbol({
   color: [56, 226, 234, 0.14],
@@ -192,6 +206,7 @@ export default function App() {
   /** Every saved scenario version. The tray shows the latest version of each. */
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [openUid, setOpenUid] = useState<string | null>(null);
+  const [reviewUid, setReviewUid] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [trayHeight, setTrayHeight] = useState(0);
   const trayHeightRef = useRef(0);
@@ -203,6 +218,7 @@ export default function App() {
   const topUpRef = useRef<{ runId: string; controller: AbortController; busy: Set<string>; changed: boolean } | null>(null);
 
   const openScenario = scenarios.find((s) => s.uid === openUid) ?? null;
+  const reviewScenario = scenarios.find((s) => s.uid === reviewUid) ?? null;
   const scenarioShapes = useMemo(
     () =>
       openScenario && {
@@ -1010,7 +1026,12 @@ export default function App() {
         ? "Next: copy the approved brief into Podium: the boundary, then the numbers"
         : "Approve a brief, then copy it into Podium",
     },
-    { label: "Review 3D", state: stateAt(7), title: "Planned: import Podium's 3D models (GLB) and review them on the site" },
+    {
+      label: "Review 3D",
+      state: stateAt(7),
+      title: "Import Podium's design (GLB) and review it on the site in 3D",
+      onClick: latestScenarios.length ? () => setReviewUid((openScenario ?? latestScenarios.at(-1)!).uid) : undefined,
+    },
   ];
 
   const showMe = (target: GuideTarget) => {
@@ -1165,6 +1186,7 @@ export default function App() {
             onDelete={() => void removeScenario(openScenario.uid)}
             onOpenVersion={setOpenUid}
             onZoom={() => showScenario(openScenario.uid)}
+            onReview3D={() => setReviewUid(openScenario.uid)}
             onClose={() => setOpenUid(null)}
             onBack={run ? () => setOpenUid(null) : undefined}
           />
@@ -1226,6 +1248,12 @@ export default function App() {
         <div className="map-status glass" role="status">
           {mapFailed ? "Couldn't load the web map. Check your connection and reload." : "Loading web map…"}
         </div>
+      )}
+
+      {reviewScenario && (
+        <Suspense fallback={null}>
+          <Review3D key={reviewScenario.uid} scenario={reviewScenario} onClose={() => setReviewUid(null)} />
+        </Suspense>
       )}
     </div>
   );

@@ -301,7 +301,7 @@ export async function podiumBoundary(s: Scenario) {
   const geo = toWgs84(s.site.geometry);
   if (!geo) throw new Error("the parcel has no boundary");
   const { ring, parts, holes } = podiumRing(geo);
-  return { text: JSON.stringify(ring), points: ring.length, parts, holes };
+  return { text: JSON.stringify(ring), ring, points: ring.length, parts, holes };
 }
 
 /** The request in our draft format. Only what is listed here would leave the app. */

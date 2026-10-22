@@ -104,9 +104,13 @@ const PAGES: Page[] = [
   },
   {
     title: "Review the designs in 3D",
-    why: "Podium's designs will be placed on the real site in 3D, so options can be compared.",
-    actions: ["This step isn't built yet. The plan: export each design from Podium as a 3D model (GLB) and import it here to place it on the site."],
-    unavailable: true,
+    why: "Podium's design is placed on the real parcel and terrain, so it can be checked where it will be built.",
+    actions: [
+      "In Podium, open the scenario with the design and export it: **Downloads**, **3D Model (GLB)**.",
+      "Here, open the scenario and press **Review in 3D**, then **Import Podium design (GLB)** and choose the file.",
+      "Each building is placed where Podium put it. Podium designs on a flat site, so each one sits at the average ground level under it.",
+    ],
+    showMe: "scenarios",
   },
 ];
 
@@ -117,8 +121,8 @@ const OVERVIEW = [
   "Read why each site ranks where it does",
   "Shortlist the best sites",
   "Prepare a design brief for a site",
-  "Send the brief to Podium (not available yet)",
-  "Review Podium's designs in 3D (not available yet)",
+  "Copy the brief into Podium",
+  "Review Podium's design in 3D",
 ];
 
 const SEEN_KEY = "dcss.guide";
