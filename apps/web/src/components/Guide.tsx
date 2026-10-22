@@ -97,6 +97,7 @@ const PAGES: Page[] = [
     actions: [
       "With the **ArcGIS Podium Bridge** extension in Chrome or Edge, open the brief, press **Review brief →**, then **Design in Podium**. It approves the version if needed.",
       "The bridge works in a Podium window, signed in as you: it creates the project, sets the site boundary, fills in the data center generator, generates the options, saves them as scenarios and brings them back. Keep that window visible while it works.",
+      "**Fill the site (demo)** is on at first: Podium is asked for a campus of 6 to 10 buildings that fills the parcel instead of the brief's IT target. Switch it off to design to the brief's numbers.",
       "Without the extension, press **Copy boundary for Podium**. In Podium, open the project's Site, choose **Coordinate Entry**, paste, press **Parse & insert**, then **Save changes**, and enter the brief's numbers in Podium's data center generator.",
       "**Download (JSON)** on an approved scenario saves the whole brief as a file.",
     ],

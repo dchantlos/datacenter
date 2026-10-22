@@ -27,11 +27,14 @@ function validate(job) {
     job.name.length <= 200 &&
     (job.mode === "fetch" ? typeof job.projectId === "string" : job.projectId === undefined || job.projectId === null || typeof job.projectId === "string") &&
     (typeof job.projectId !== "string" || /^[\w-]{8,64}$/.test(job.projectId)) &&
+    (job.fill === undefined || typeof job.fill === "boolean") &&
     (job.mode !== "design" ||
       (Array.isArray(job.ring) &&
         job.ring.length >= 3 &&
         job.ring.length <= 5000 &&
         job.ring.every((p) => Array.isArray(p) && p.length === 2 && finite(p[0]) && finite(p[1]) && Math.abs(p[0]) <= 180 && Math.abs(p[1]) <= 90) &&
+        finite(job.areaM2) &&
+        job.areaM2 > 0 &&
         job.brief &&
         finite(job.brief.maxHeightM) &&
         Number.isInteger(job.brief.options) &&

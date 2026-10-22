@@ -11,6 +11,8 @@
   const DC_POLICY = "Podium Default - Data Centre";
   const CONFIG_TEMPLATE = "Podium Default";
   const DEFAULT_PUE = 1.4;
+  // Demo "fill the site": about 8 MW of IT per hectare of parcel, as a campus of 6 to 10 buildings.
+  const FILL = { mwPerHectare: 8, maxMW: 200, minBuildings: 6, maxBuildings: 10 };
   const KEEP_TYPES = new Set(["project", "site", "siteLayoutCriteria", "building", "buildingSection"]);
   const KEEP_FACETS = [
     "hvac:ITLoadMetric",
@@ -303,18 +305,26 @@
     const building = await lastBuildingSettings(j);
     const b = j.brief;
     const pue = b.pue ?? DEFAULT_PUE;
-    const it = b.itCapacityMW ?? (b.availablePowerMW !== null ? Number((b.availablePowerMW / pue).toFixed(1)) : null);
+    const briefIt = b.itCapacityMW ?? (b.availablePowerMW !== null ? Number((b.availablePowerMW / pue).toFixed(1)) : null);
+    const fillIt = Math.min(FILL.maxMW, Math.max(briefIt ?? 0, Math.round((j.areaM2 / 1e4) * FILL.mwPerHectare / 10) * 10));
+    const it = j.fill ? fillIt : briefIt;
     const criteria = {
       site: {
-        derivedMode: b.itCapacityMW === null,
+        derivedMode: !j.fill && b.itCapacityMW === null,
         targetITCapacity: it,
-        totalAvailablePower: b.availablePowerMW ?? (it === null ? null : Number((it * pue).toFixed(1))),
+        totalAvailablePower: j.fill || b.availablePowerMW === null ? (it === null ? null : Number((it * pue).toFixed(1))) : b.availablePowerMW,
         pue,
         maxGFA: b.maxGfaM2,
         siteCoveragePercentage: b.siteCoveragePct,
         maxAllowableHeight: b.maxHeightM,
       },
-      building: { ...(building ?? {}), numberOfSolutions: b.options },
+      building: {
+        ...(building ?? {}),
+        numberOfSolutions: b.options,
+        minBuildings: j.fill ? FILL.minBuildings : 1,
+        maxBuildings: j.fill ? FILL.maxBuildings : 10,
+        maximiseMW: true,
+      },
     };
     const user = userName();
     if (!user) throw new Error("Couldn't read your Podium user name.");
@@ -333,7 +343,8 @@
       });
     }
     const template = building?.buildingTemplate?.name;
-    step("generator", "done", `Generator set to ${it} MW IT, ${b.maxHeightM} m max height, ${plural(b.options, "option")}${template ? `, ${template}` : ""}`);
+    const target = j.fill ? `${it} MW IT to fill the site (demo; the brief asks for ${briefIt ?? "?"} MW), ${FILL.minBuildings} to ${FILL.maxBuildings} buildings` : `${it} MW IT`;
+    step("generator", "done", `Generator set to ${target}, ${b.maxHeightM} m max height, ${plural(b.options, "option")}${template ? `, ${template}` : ""}`);
     return { templateKnown: Boolean(template), it };
   }
 

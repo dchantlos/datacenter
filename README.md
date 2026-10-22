@@ -108,7 +108,9 @@ Podium has no public API for this, and its server doesn't accept calls from othe
 4. starts the design, generates the options and saves them as Podium scenarios,
 5. sends each design back (Podium's model and figures) and exports Podium's 3D model (GLB) of each one.
 
-The brief lists each step as it happens, and the 3D review opens when the first design arrives. In tests, two options took two to three minutes, most of it Podium's generator. **Bring designs back** reads the project again after changes made in Podium. If a run stops part-way, **Design in Podium** carries on in the same project instead of making a second one.
+The brief lists each step as it happens, and the 3D review opens when the first design arrives. In tests, two options took two to three minutes, most of it Podium's generator.
+
+**Fill the site (demo)**, next to the button, is on at first. It asks Podium for a campus that fills the parcel (6 to 10 buildings, about 8 MW of IT per hectare, up to 200 MW) instead of the brief's IT target, which on its own can give a single building. Podium's figures in the 3D review are then for that campus, not for the brief's target. Switch it off to design to the brief's numbers. **Bring designs back** reads the project again after changes made in Podium. If a run stops part-way, **Design in Podium** carries on in the same project instead of making a second one.
 
 | File (in `podium-bridge`) | What it does |
 |---|---|

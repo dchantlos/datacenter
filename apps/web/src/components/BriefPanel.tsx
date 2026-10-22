@@ -47,7 +47,7 @@ interface Props {
   bridge: string | null;
   podiumRun: PodiumRun | null;
   podiumDesign: PodiumDesignRecord | null;
-  onDesignInPodium: () => void;
+  onDesignInPodium: (fill: boolean) => void;
   onBringBack: () => void;
   onStopPodium: () => void;
 }
@@ -356,9 +356,11 @@ function positions(g: GeoJsonPolygon | null) {
 
 const STEP_ICON = { working: "spinner", done: "check", "needs-user": "exclamation-mark-triangle", error: "x" } as const;
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const FILL_KEY = "dcss.podiumFill";
 
 /** With the bridge: one button runs Podium for this version and brings the designs back. Without it: copy and paste. */
 function PodiumHandoff({ scenario, bridge, podiumRun: run, podiumDesign: design, onDesignInPodium, onBringBack, onStopPodium, onReview3D }: Props) {
+  const [fill, setFill] = useState(() => localStorage.getItem(FILL_KEY) !== "off");
   if (!bridge) {
     return (
       <>
@@ -373,14 +375,29 @@ function PodiumHandoff({ scenario, bridge, podiumRun: run, podiumDesign: design,
   const ready = briefProblems(scenario).length === 0;
   const designs = design?.options.length ?? 0;
   const models = design?.options.filter((o) => o.glb).length ?? 0;
+  const toggleFill = () => {
+    localStorage.setItem(FILL_KEY, fill ? "off" : "on");
+    setFill(!fill);
+  };
   return (
     <div className="podium-handoff">
+      <button type="button" role="switch" aria-checked={fill} className="row row--switch" onClick={toggleFill}>
+        <span className={`sw${fill ? "" : " off"}`} aria-hidden="true" />
+        <div>
+          Fill the site (demo)
+          <small>
+            {fill
+              ? "Podium is asked for a campus of 6 to 10 buildings, about 8 MW of IT per hectare, instead of the brief's IT target."
+              : "Podium designs to the brief's IT target, which can be a single building."}
+          </small>
+        </div>
+      </button>
       <div className="podium-handoff__actions">
         <button
           type="button"
           className="btn"
           disabled={!ready || running}
-          onClick={onDesignInPodium}
+          onClick={() => onDesignInPodium(fill)}
           title={scenario.state === "draft" ? "Approves this version, then creates a Podium project from it and runs Podium's data centre generator" : "Creates a Podium project from this version and runs Podium's data centre generator"}
         >
           <calcite-icon icon="launch" scale="s" />

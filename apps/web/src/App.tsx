@@ -835,7 +835,7 @@ export default function App() {
   };
 
   /** "design" approves the version if needed and runs Podium for it; "fetch" reads its Podium project again. */
-  const sendToPodium = async (uid: string, mode: BridgeJob["mode"]) => {
+  const sendToPodium = async (uid: string, mode: BridgeJob["mode"], fill = false) => {
     const s = scenarios.find((x) => x.uid === uid);
     if (!s || podiumJobs.current.has(uid)) return;
     podiumJobs.current.set(uid, { cancel: () => undefined });
@@ -846,7 +846,7 @@ export default function App() {
     const projectId = mode === "fetch" || !record?.options.length ? record?.projectId : undefined;
     const show = (run: PodiumRun) => setPodiumRuns((prev) => new Map(prev).set(uid, run));
     try {
-      const job = await podiumJob(s, mode, projectId, styles);
+      const job = await podiumJob(s, mode, projectId, styles, fill);
       show({ jobId: job.jobId, mode, steps: [], finished: false, error: null });
       podiumJobs.current.set(uid, runBridge(job, (event) => onBridgeEvent(uid, job.jobId, event)));
     } catch (error) {
@@ -1284,7 +1284,7 @@ export default function App() {
             bridge={bridge}
             podiumRun={podiumRuns.get(openScenario.uid) ?? null}
             podiumDesign={designs.get(openScenario.uid) ?? null}
-            onDesignInPodium={() => void sendToPodium(openScenario.uid, "design")}
+            onDesignInPodium={(fill) => void sendToPodium(openScenario.uid, "design", fill)}
             onBringBack={() => void sendToPodium(openScenario.uid, "fetch")}
             onStopPodium={() => podiumJobs.current.get(openScenario.uid)?.cancel()}
           />

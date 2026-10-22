@@ -53,6 +53,8 @@ export interface BridgeJob {
   /** Podium projects whose generator settings (building template, data halls) can be reused. */
   styleProjectIds: string[];
   glb: boolean;
+  /** Demo: Podium is asked for a campus that fills the parcel instead of the brief's IT target. */
+  fill: boolean;
 }
 
 /** The installed bridge's version, or null when it isn't installed or doesn't answer. */
@@ -115,7 +117,7 @@ export function runBridge(job: BridgeJob, onEvent: (event: BridgeEvent) => void)
 
 const SQUARE_METRES_PER_ACRE = 4046.8564224;
 
-export async function podiumJob(s: Scenario, mode: BridgeJob["mode"], projectId: string | undefined, styleProjectIds: string[]): Promise<BridgeJob> {
+export async function podiumJob(s: Scenario, mode: BridgeJob["mode"], projectId: string | undefined, styleProjectIds: string[], fill = false): Promise<BridgeJob> {
   const { ring } = await podiumBoundary(s);
   const b = s.brief;
   if (b.maxHeightM === null || b.optionsRequested === null) throw new Error("the brief needs a max height and a number of design options");
@@ -139,6 +141,7 @@ export async function podiumJob(s: Scenario, mode: BridgeJob["mode"], projectId:
     projectId,
     styleProjectIds,
     glb: true,
+    fill,
   };
 }
 
