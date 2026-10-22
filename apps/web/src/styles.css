@@ -2135,6 +2135,19 @@ input.wbar:focus-visible::-moz-range-thumb {
   gap: 8px 10px;
 }
 
+.podium-copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-top: 10px;
+}
+
+.podium-copy small {
+  flex-basis: 100%;
+  color: var(--dim);
+}
+
 .field {
   min-width: 0;
   display: flex;

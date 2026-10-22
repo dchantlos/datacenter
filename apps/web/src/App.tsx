@@ -67,6 +67,7 @@ import {
   restartScenarioCount,
   resumeScenarioCount,
   scenarioNumber,
+  withBriefDefaults,
   type Brief,
   type Scenario,
 } from "./scenarios";
@@ -269,7 +270,7 @@ export default function App() {
     let cancelled = false;
     void (async () => {
       try {
-        const [criteria, runCounter, runs, entries, savedScenarios, scenarioCounter] = await Promise.all([
+        const [criteria, runCounter, runs, entries, storedScenarios, scenarioCounter] = await Promise.all([
           loadCriteria(),
           loadCounter("runCounter"),
           listRuns(),
@@ -278,6 +279,7 @@ export default function App() {
           loadCounter("scenarioCounter"),
         ]);
         if (cancelled) return;
+        const savedScenarios = storedScenarios.map(withBriefDefaults);
         if (criteria) {
           setRules({ ...DEFAULT_RULES, ...criteria.rules });
           setWeights({ ...DEFAULT_WEIGHTS, ...criteria.weights });

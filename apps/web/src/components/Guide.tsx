@@ -84,7 +84,7 @@ const PAGES: Page[] = [
     actions: [
       "Select a site and press **Create scenario →**. A card appears in the tray at the bottom of the map.",
       "In the brief, enter the **Setback from the parcel boundary** in metres (0 is allowed). The buildable area is worked out for you and shown in green.",
-      "Check **Design options** and **North rotation**. The **Podium inputs** are optional.",
+      "Enter the **Target IT capacity** (or the available power and PUE) and the **Max height**. These are inputs of Podium's data center generator; the rest are optional.",
       "Press **Review brief →** to see exactly what would leave the app, then **Approve for Podium**.",
     ],
     see: "The card's status moves from Draft to Ready for review to Awaiting Podium contract.",
@@ -95,8 +95,9 @@ const PAGES: Page[] = [
     title: "Send to Podium",
     why: "Podium turns an approved brief into data center design options.",
     actions: [
-      "This step isn't available yet. It needs Podium's API details and the connection built on them.",
-      "Until then, open an approved scenario and press **Download (JSON)** to share the brief as a file.",
+      "This step isn't automatic yet. It needs Podium to let this app call its API and sign in.",
+      "Until then, press **Copy boundary for Podium** in the brief, then in Podium open the project's Site, choose **Coordinate Entry**, paste and press **Parse & insert**.",
+      "**Download (JSON)** on an approved scenario saves the whole brief as a file.",
     ],
     unavailable: true,
     showMe: "scenarios",

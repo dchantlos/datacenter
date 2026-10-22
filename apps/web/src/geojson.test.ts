@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { toGeoJson } from "./geojson.ts";
+import { podiumRing, toGeoJson } from "./geojson.ts";
 
 // Esri orientation: outer rings clockwise, holes counter-clockwise.
 const outerA = [[0, 0], [0, 10], [10, 10], [10, 0], [0, 0]];
@@ -31,4 +31,13 @@ test("coordinates are rounded and empty input gives null", () => {
   const g = toGeoJson([[[0, 0], [0, 1.123456789], [1, 1], [1, 0], [0, 0]]], 4);
   assert.deepEqual((g!.coordinates as number[][][])[0].find(([, y]) => y > 1), [0, 1.1235]);
   assert.equal(toGeoJson([]), null);
+});
+
+test("Podium gets the largest part's outline as an open ring, without holes", () => {
+  const { ring, parts, holes } = podiumRing(toGeoJson([outerB, holeA, outerA])!);
+  assert.equal(parts, 2);
+  assert.equal(holes, 1);
+  assert.equal(ring.length, 4, "closing point dropped");
+  assert.ok(area([...ring, ring[0]]) < 0, "clockwise, like the boundary Podium accepted");
+  assert.ok(ring.every(([x, y]) => x <= 10 && y <= 10), "the 10 x 10 part, not the 5 x 5 one");
 });

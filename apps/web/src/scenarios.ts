@@ -9,13 +9,13 @@ import * as unionOperator from "@arcgis/core/geometry/operators/unionOperator.js
 import type { Candidate } from "./analysis";
 import { CRITERIA, FACTORS, type SiteOutcome } from "./criteria";
 import { elevationAt } from "./elevation";
-import { toGeoJson } from "./geojson";
+import { podiumRing, toGeoJson } from "./geojson";
 import type { Health } from "./health";
 import { sourceById, type SourceId } from "./sources";
 import type { SavedCriteria } from "./store";
 
 /** Our draft request format (docs/podium-checklist.md appendix), not Podium's format. */
-export const CONTRACT_VERSION = "draft-0.1";
+export const CONTRACT_VERSION = "draft-0.2";
 /** Projects aren't built yet; every scenario belongs to the one local project. */
 const PROJECT_ID = "default";
 
@@ -42,14 +42,13 @@ export interface Brief {
   setbackM: number | null;
   northRotationDeg: number | null;
   optionsRequested: number | null;
-  // Inputs seen in the hackathon recording; meanings to be confirmed by Podium.
-  template: string;
-  siteCoveragePct: number | null;
-  grossPlotRatio: number | null;
-  efficiencyPct: number | null;
-  maxHeightM: number | null;
-  diversityFactorPct: number | null;
+  // Inputs of Podium's data centre generator, as seen in Podium's dev environment on 2026-10-22.
   itCapacityMW: number | null;
+  availablePowerMW: number | null;
+  pue: number | null;
+  maxHeightM: number | null;
+  maxSiteCoveragePct: number | null;
+  maxGfaM2: number | null;
 }
 
 export interface Scenario {
@@ -89,14 +88,20 @@ export const EMPTY_BRIEF: Brief = {
   setbackM: null,
   northRotationDeg: 0,
   optionsRequested: 3,
-  template: "",
-  siteCoveragePct: null,
-  grossPlotRatio: null,
-  efficiencyPct: null,
-  maxHeightM: null,
-  diversityFactorPct: null,
   itCapacityMW: null,
+  availablePowerMW: null,
+  pue: null,
+  maxHeightM: null,
+  maxSiteCoveragePct: null,
+  maxGfaM2: null,
 };
+
+/** Briefs saved before a field existed get it empty. */
+export const withBriefDefaults = (s: Scenario): Scenario => ({ ...s, brief: { ...EMPTY_BRIEF, ...s.brief } });
+
+/** The IT capacity to ask for: as entered, or what the available power supports at the PUE. */
+export const itCapacity = (b: Brief) =>
+  b.itCapacityMW ?? (b.availablePowerMW !== null && b.pue ? Number((b.availablePowerMW / b.pue).toFixed(1)) : null);
 
 let scenarioCount = 0;
 export const scenarioNumber = (id: string) => Number(id.replace(/\D/g, "")) || 0;
@@ -237,15 +242,21 @@ export function briefProblems(s: Scenario): string[] {
     problems.push("Design options must be a whole number from 1 to 10.");
   }
   if ("error" in s.elevation) problems.push(`Ground elevation is missing: ${s.elevation.error}.`);
-  const optional: [number | null, number, number, string][] = [
-    [b.siteCoveragePct, 1, 100, "Site coverage must be 1 to 100 %."],
-    [b.grossPlotRatio, 0.01, 20, "Gross plot ratio must be above 0 and at most 20."],
-    [b.efficiencyPct, 1, 100, "Efficiency must be 1 to 100 %."],
+  const it = itCapacity(b);
+  if (it === null) problems.push("Enter the target IT capacity, or the available power and PUE.");
+  if (b.maxHeightM === null) problems.push("Enter the max height.");
+  const ranges: [number | null, number, number, string][] = [
+    [b.itCapacityMW, 0.1, 5000, "Target IT capacity must be 0.1 to 5,000 MW."],
+    [b.availablePowerMW, 0.1, 10000, "Available power must be 0.1 to 10,000 MW."],
+    [b.pue, 1, 1.8, "PUE must be 1 to 1.8 (Podium's range)."],
     [b.maxHeightM, 1, 300, "Max height must be 1 to 300 m."],
-    [b.diversityFactorPct, 60, 100, "Diversity factor must be 60 to 100 %."],
-    [b.itCapacityMW, 0.1, 5000, "IT capacity must be above 0 MW."],
+    [b.maxSiteCoveragePct, 1, 100, "Max site coverage must be 1 to 100 %."],
+    [b.maxGfaM2, 100, 10_000_000, "Max floor area must be 100 to 10,000,000 m²."],
   ];
-  for (const [value, min, max, message] of optional) if (value !== null && !between(value, min, max)) problems.push(message);
+  for (const [value, min, max, message] of ranges) if (value !== null && !between(value, min, max)) problems.push(message);
+  if (b.itCapacityMW !== null && b.availablePowerMW !== null && b.pue !== null && b.itCapacityMW * b.pue > b.availablePowerMW) {
+    problems.push(`IT capacity × PUE is more than the available power (it supports ${(b.availablePowerMW / b.pue).toFixed(1)} MW of IT).`);
+  }
   return problems;
 }
 
@@ -269,10 +280,12 @@ export const utmEpsg = (lon: number) => 32600 + Math.floor((lon + 180) / 6) + 1;
 
 function assumptions(s: Scenario): string[] {
   const { rules, weights } = s.analysis.criteria;
+  const b = s.brief;
   return [
-    `Setback of ${s.brief.setbackM} m inside the parcel boundary (user requirement).`,
-    `${s.brief.optionsRequested} design options requested (user requirement).`,
-    `North rotation ${s.brief.northRotationDeg}° from true north (to be confirmed with Podium).`,
+    `Setback of ${b.setbackM} m inside the parcel boundary (user requirement).`,
+    `Target IT capacity ${itCapacity(b)} MW${b.itCapacityMW === null ? ` (available power ${b.availablePowerMW} MW ÷ PUE ${b.pue})` : ""} and max height ${b.maxHeightM} m (user requirements).`,
+    `${b.optionsRequested} design options requested (user requirement).`,
+    `North rotation ${b.northRotationDeg}° from true north (to be confirmed with Podium).`,
     `Minimum developable area ${rules.minDevelopableAcres} ac, and at least ${Math.round(rules.minFlatShare * 100)} % of it at ${CRITERIA.flatSlopeDeg}° slope or less (user requirements).`,
     `Ranking weights: ${FACTORS.map((f) => `${f.short} ${weights[f.id]}`).join(", ")} (user requirements).`,
     "Distances to transmission lines and roads are straight-line proxies, not capacity or access routes.",
@@ -280,12 +293,24 @@ function assumptions(s: Scenario): string[] {
   ];
 }
 
+const toWgs84 = (json: GeometryJson) => toGeoJson((projectOperator.execute(Polygon.fromJSON(json), SpatialReference.WGS84) as Polygon).rings);
+
+/** The site boundary as text for Podium's Coordinate Entry (Site, Coordinate Entry, paste, Parse & insert). */
+export async function podiumBoundary(s: Scenario) {
+  await ready();
+  const geo = toWgs84(s.site.geometry);
+  if (!geo) throw new Error("the parcel has no boundary");
+  const { ring, parts, holes } = podiumRing(geo);
+  return { text: JSON.stringify(ring), points: ring.length, parts, holes };
+}
+
 /** The request in our draft format. Only what is listed here would leave the app. */
 export async function buildRequest(s: Scenario, appLink: string) {
   await ready();
-  const wgs84 = (json: GeometryJson) => toGeoJson((projectOperator.execute(Polygon.fromJSON(json), SpatialReference.WGS84) as Polygon).rings);
   const b = s.brief;
   const optional = (key: string, value: number | string | null) => (value === null || value === "" ? {} : { [key]: value });
+  // Podium's generator takes each value with its unit.
+  const measure = (key: string, value: number | null, unit: string) => (value === null ? {} : { [key]: { value, unit } });
   const parcelSource = s.dataSources[0];
   return {
     contractVersion: CONTRACT_VERSION,
@@ -295,7 +320,7 @@ export async function buildRequest(s: Scenario, appLink: string) {
       name: `${s.site.apn}, ${s.site.county}`,
       source: "parcel",
       parcelRef: { jurisdiction: `${s.site.county}, NV`, apn: s.site.apn, dataDate: parcelSource?.dataDate ?? null },
-      boundary: wgs84(s.site.geometry),
+      boundary: toWgs84(s.site.geometry),
       measurementCrs: `EPSG:${utmEpsg(s.site.anchor.lon)}`,
       units: "m",
       anchor: s.site.anchor,
@@ -303,25 +328,24 @@ export async function buildRequest(s: Scenario, appLink: string) {
       groundElevation: "error" in s.elevation ? null : { value: s.elevation.valueM, unit: "m", heightReference: s.elevation.reference },
     },
     constraints: {
-      buildableArea: s.buildable?.geometry ? wgs84(s.buildable.geometry) : null,
+      buildableArea: s.buildable?.geometry ? toWgs84(s.buildable.geometry) : null,
       setbacks: { default_m: b.setbackM },
       noBuildAreas: s.noBuild.map((n) => ({
         type: n.type,
         reason: n.reason,
         source: n.sources.map((id) => s.dataSources.find((d) => d.url === sourceById(id).url)?.name ?? sourceById(id).title).join("; "),
-        geometry: wgs84(n.geometry),
+        geometry: toWgs84(n.geometry),
       })),
       accessPoints: [],
     },
     brief: {
-      ...optional("template", b.template.trim()),
-      ...optional("siteCoveragePct", b.siteCoveragePct),
-      ...optional("grossPlotRatio", b.grossPlotRatio),
-      ...optional("efficiencyPct", b.efficiencyPct),
-      ...optional("maxHeight_m", b.maxHeightM),
-      ...optional("diversityFactorPct", b.diversityFactorPct),
-      ...optional("itCapacityMW", b.itCapacityMW),
-      optionsRequested: b.optionsRequested,
+      ...measure("targetITCapacity", itCapacity(b), "megawatts"),
+      ...measure("maxAllowableHeight", b.maxHeightM, "meters"),
+      ...measure("siteCoveragePercentage", b.maxSiteCoveragePct, "percent"),
+      ...measure("maxGFA", b.maxGfaM2, "square_meters"),
+      ...optional("totalAvailablePower_MW", b.availablePowerMW),
+      ...optional("pue", b.pue),
+      numberOfSolutions: b.optionsRequested,
     },
     provenance: {
       analysisSummary: { rank: s.analysis.rank, score: round(s.analysis.score, 3), completeness: `${s.analysis.measured}/${s.analysis.factors}` },

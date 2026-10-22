@@ -38,3 +38,10 @@ export function toGeoJson(rings: number[][][], digits = 7): GeoJsonPolygon | nul
   if (!outers.length) return null;
   return outers.length === 1 ? { type: "Polygon", coordinates: outers[0].polygon } : { type: "MultiPolygon", coordinates: outers.map((o) => o.polygon) };
 }
+
+/** Podium's Coordinate Entry takes one open ring: the largest part's outline, clockwise like the county boundary it accepted. */
+export function podiumRing(g: GeoJsonPolygon): { ring: Position[]; parts: number; holes: number } {
+  const polygons = g.type === "Polygon" ? [g.coordinates] : g.coordinates;
+  const largest = polygons.reduce((best, p) => (Math.abs(signedArea(p[0])) > Math.abs(signedArea(best[0])) ? p : best));
+  return { ring: [...largest[0]].reverse().slice(0, -1), parts: polygons.length, holes: largest.length - 1 };
+}

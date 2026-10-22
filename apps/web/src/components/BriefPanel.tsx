@@ -6,6 +6,8 @@ import {
   briefLabel,
   briefProblems,
   buildRequest,
+  itCapacity,
+  podiumBoundary,
   scenarioStatus,
   utmEpsg,
   type Brief,
@@ -16,6 +18,8 @@ import {
 
 const ac = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 1 });
 const dateTime = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+/** Set in .env.development.local, so the public build never links to Podium's dev environment. */
+const PODIUM_URL = import.meta.env.VITE_PODIUM_URL as string | undefined;
 const NO_BUILD: Record<NoBuildArea["type"], string> = {
   "flood-zone": "Flood zone",
   wetland: "Wetland",
@@ -141,6 +145,7 @@ function Edit({ scenario: s, onChange, onRetryElevation, onDelete, onReview }: P
             </dd>
           </div>
         </dl>
+        <CopyForPodium scenario={s} />
       </div>
 
       <div className="sec">
@@ -178,23 +183,26 @@ function Edit({ scenario: s, onChange, onRetryElevation, onDelete, onReview }: P
       <div className="sec">
         <div className="sec__head">
           <span className="kicker">Design brief</span>
+          <span className="chip chip--violet">Podium's data centre inputs</span>
         </div>
         <div className="fields">
-          <NumberField label="Design options" value={b.optionsRequested} step={1} required onChange={(optionsRequested) => onChange({ optionsRequested })} />
+          <NumberField
+            label="Target IT capacity"
+            unit="MW"
+            value={b.itCapacityMW}
+            step={0.1}
+            required={b.itCapacityMW !== null || itCapacity(b) === null}
+            hint={b.itCapacityMW === null && itCapacity(b) !== null ? `${itCapacity(b)} MW from power ÷ PUE` : "or enter power and PUE"}
+            onChange={(itCapacityMW) => onChange({ itCapacityMW })}
+          />
+          <NumberField label="Max height" unit="m" value={b.maxHeightM} step={0.5} required onChange={(maxHeightM) => onChange({ maxHeightM })} />
+          <NumberField label="Available power" unit="MW" value={b.availablePowerMW} step={0.1} onChange={(availablePowerMW) => onChange({ availablePowerMW })} />
+          <NumberField label="PUE" value={b.pue} step={0.01} hint="1 to 1.8" onChange={(pue) => onChange({ pue })} />
+          <NumberField label="Max site coverage" unit="%" value={b.maxSiteCoveragePct} onChange={(maxSiteCoveragePct) => onChange({ maxSiteCoveragePct })} />
+          <NumberField label="Max floor area" unit="m²" value={b.maxGfaM2} step={100} onChange={(maxGfaM2) => onChange({ maxGfaM2 })} />
+          <NumberField label="Design options" value={b.optionsRequested} step={1} required hint="1 to 10" onChange={(optionsRequested) => onChange({ optionsRequested })} />
           <NumberField label="North rotation" unit="°" value={b.northRotationDeg} step={1} required hint="0 = true north" onChange={(northRotationDeg) => onChange({ northRotationDeg })} />
         </div>
-        <details className="brief__optional">
-          <summary>Podium inputs (optional; meanings to be confirmed by Podium)</summary>
-          <div className="fields">
-            <TextField label="Template" placeholder="Podium Default" value={b.template} onChange={(template) => onChange({ template })} />
-            <NumberField label="Site coverage" unit="%" value={b.siteCoveragePct} onChange={(siteCoveragePct) => onChange({ siteCoveragePct })} />
-            <NumberField label="Gross plot ratio" value={b.grossPlotRatio} step={0.1} onChange={(grossPlotRatio) => onChange({ grossPlotRatio })} />
-            <NumberField label="Efficiency" unit="%" value={b.efficiencyPct} onChange={(efficiencyPct) => onChange({ efficiencyPct })} />
-            <NumberField label="Max height" unit="m" value={b.maxHeightM} onChange={(maxHeightM) => onChange({ maxHeightM })} />
-            <NumberField label="Diversity factor" unit="%" hint="60 to 100" value={b.diversityFactorPct} onChange={(diversityFactorPct) => onChange({ diversityFactorPct })} />
-            <NumberField label="IT capacity" unit="MW" value={b.itCapacityMW} step={0.1} onChange={(itCapacityMW) => onChange({ itCapacityMW })} />
-          </div>
-        </details>
         <TextField label="Scenario name (optional)" placeholder="for example Alt. program" value={b.name} onChange={(name) => onChange({ name })} />
       </div>
 
@@ -242,14 +250,14 @@ function Review({ scenario: s, appLink, onApprove, onNewVersion, onEdit }: Props
   };
 
   const b = s.brief;
-  const optional = [
-    b.template.trim() && `template ${b.template.trim()}`,
-    b.siteCoveragePct !== null && `site coverage ${b.siteCoveragePct} %`,
-    b.grossPlotRatio !== null && `gross plot ratio ${b.grossPlotRatio}`,
-    b.efficiencyPct !== null && `efficiency ${b.efficiencyPct} %`,
+  const it = itCapacity(b);
+  const program = [
+    it !== null && `IT capacity ${it} MW${b.itCapacityMW === null ? ` (power ${b.availablePowerMW} MW ÷ PUE ${b.pue})` : ""}`,
     b.maxHeightM !== null && `max height ${b.maxHeightM} m`,
-    b.diversityFactorPct !== null && `diversity factor ${b.diversityFactorPct} %`,
-    b.itCapacityMW !== null && `IT capacity ${b.itCapacityMW} MW`,
+    b.itCapacityMW !== null && b.availablePowerMW !== null && `available power ${b.availablePowerMW} MW`,
+    b.itCapacityMW !== null && b.pue !== null && `PUE ${b.pue}`,
+    b.maxSiteCoveragePct !== null && `max site coverage ${b.maxSiteCoveragePct} %`,
+    b.maxGfaM2 !== null && `max floor area ${b.maxGfaM2.toLocaleString("en-US")} m²`,
   ].filter(Boolean);
 
   return (
@@ -275,7 +283,7 @@ function Review({ scenario: s, appLink, onApprove, onNewVersion, onEdit }: Props
             {"error" in s.elevation ? "missing" : `${s.elevation.valueM} m NAVD88`}; north rotation {b.northRotationDeg}°; EPSG:{utmEpsg(s.site.anchor.lon)}, metres
           </li>
           <li>
-            <b>Brief</b> {b.optionsRequested} design options{optional.length ? `; ${optional.join(", ")}` : ""}
+            <b>Brief</b> {b.optionsRequested} design options{program.length ? `; ${program.join(", ")}` : ""}
           </li>
           <li>
             <b>Analysis summary</b> rank #{s.analysis.rank}, score {s.analysis.score.toFixed(2)}, {s.analysis.measured} of {s.analysis.factors} criteria measured
@@ -288,6 +296,7 @@ function Review({ scenario: s, appLink, onApprove, onNewVersion, onEdit }: Props
           </li>
         </ul>
         <p className="note note--left">Never sent: owner names or mailing addresses (never requested), assessed values, or any other candidate.</p>
+        <CopyForPodium scenario={s} />
         {failed && <p className="caveat">Couldn't build the request: {failed}</p>}
         {request && (
           <details className="brief__json">
@@ -329,6 +338,35 @@ function positions(g: GeoJsonPolygon | null) {
   if (!g) return 0;
   const rings = g.type === "Polygon" ? g.coordinates : g.coordinates.flat();
   return rings.reduce((n, ring) => n + ring.length - 1, 0);
+}
+
+/** Hand-off until the connector exists: the outline in the form Podium's Coordinate Entry accepts. */
+function CopyForPodium({ scenario }: { scenario: Scenario }) {
+  const [message, setMessage] = useState<string | null>(null);
+  const copy = async () => {
+    try {
+      const boundary = await podiumBoundary(scenario);
+      await navigator.clipboard.writeText(boundary.text);
+      const parts = boundary.parts > 1 ? `, the largest of ${boundary.parts} parts` : "";
+      const holes = boundary.holes ? `, without its ${boundary.holes} hole${boundary.holes === 1 ? "" : "s"}` : "";
+      setMessage(`Copied ${boundary.points} points${parts}${holes}. In Podium: Site, Coordinate Entry, paste, Parse & insert, Save changes.`);
+    } catch (error) {
+      setMessage(`Couldn't copy: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+  return (
+    <div className="podium-copy">
+      <button type="button" className="btn btn--ghost" onClick={() => void copy()}>
+        Copy boundary for Podium
+      </button>
+      {PODIUM_URL && (
+        <a className="link" href={PODIUM_URL} target="_blank" rel="noreferrer">
+          Open Podium
+        </a>
+      )}
+      {message && <small aria-live="polite">{message}</small>}
+    </div>
+  );
 }
 
 function NumberField(props: {
