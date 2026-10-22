@@ -2,12 +2,14 @@ import Polygon from "@arcgis/core/geometry/Polygon.js";
 import type { AnalysisRun } from "./analysis";
 import type { FloodMapSource, Rules, SiteFacts, Weights } from "./criteria";
 import type { ParcelFacts } from "./parcels";
+import type { PodiumScenarioRef } from "./podiumBridge";
+import type { PodiumModel } from "./podiumModel";
 import type { Scenario } from "./scenarios";
 
 /** Everything is saved in this browser (IndexedDB). Nothing leaves the machine. */
 const DB_NAME = "data-center-site-selection";
-const DB_VERSION = 2;
-type StoreName = "runs" | "runIndex" | "shortlist" | "settings" | "scenarios";
+const DB_VERSION = 3;
+type StoreName = "runs" | "runIndex" | "shortlist" | "settings" | "scenarios" | "designs";
 
 export interface RunSummary {
   id: string;
@@ -41,6 +43,22 @@ export interface SavedCriteria {
 
 type GeometryJson = object;
 
+/** One Podium scenario that came back through the bridge. */
+export interface PodiumOption extends PodiumScenarioRef {
+  model: PodiumModel;
+  /** Podium's own GLB export of the scenario, once it arrives. */
+  glb: ArrayBuffer | null;
+}
+
+/** What Podium made from one scenario version. */
+export interface PodiumDesignRecord {
+  uid: string;
+  projectId: string;
+  projectUrl: string | null;
+  options: PodiumOption[];
+  updatedAt: number;
+}
+
 interface StoredRun {
   id: string;
   finishedAt: number;
@@ -65,11 +83,15 @@ function database(): Promise<IDBDatabase> {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
-      for (const [name, keyPath] of [["runs", "id"], ["runIndex", "id"], ["shortlist", "key"], ["settings", "id"], ["scenarios", "uid"]] as const) {
+      for (const [name, keyPath] of [["runs", "id"], ["runIndex", "id"], ["shortlist", "key"], ["settings", "id"], ["scenarios", "uid"], ["designs", "uid"]] as const) {
         if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, { keyPath });
       }
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      // Let a newer version of the app, open in another tab, upgrade the database.
+      request.result.onversionchange = () => request.result.close();
+      resolve(request.result);
+    };
     request.onerror = () => reject(request.error);
   });
   return opening;
@@ -175,5 +197,16 @@ export const saveCounter = (name: "runCounter" | "scenarioCounter", value: numbe
 
 export const listScenarios = () => getAll<Scenario>("scenarios");
 export const putScenario = (scenario: Scenario) => put("scenarios", scenario);
-export const deleteScenario = (uid: string) => transact<void>(["scenarios"], "readwrite", (tx) => void tx.objectStore("scenarios").delete(uid));
-export const clearScenarios = () => transact<void>(["scenarios"], "readwrite", (tx) => void tx.objectStore("scenarios").clear());
+export const deleteScenario = (uid: string) =>
+  transact<void>(["scenarios", "designs"], "readwrite", (tx) => {
+    tx.objectStore("scenarios").delete(uid);
+    tx.objectStore("designs").delete(uid);
+  });
+export const clearScenarios = () =>
+  transact<void>(["scenarios", "designs"], "readwrite", (tx) => {
+    tx.objectStore("scenarios").clear();
+    tx.objectStore("designs").clear();
+  });
+
+export const listDesigns = () => getAll<PodiumDesignRecord>("designs");
+export const putDesign = (record: PodiumDesignRecord) => put("designs", record);

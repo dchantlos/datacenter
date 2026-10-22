@@ -4,6 +4,8 @@ import { briefLabel, latestVersions, scenarioStatus, type Scenario } from "../sc
 interface Props {
   scenarios: Scenario[];
   openId: string | null;
+  /** True when the ArcGIS Podium Bridge extension answers. */
+  bridge: boolean;
   onOpen: (uid: string) => void;
   /** Undefined while a scenario is being created or an analysis is running. */
   onClearAll?: () => void;
@@ -12,7 +14,7 @@ interface Props {
 }
 
 /** The mockup's bottom tray: one card per scenario (its latest version). */
-export default function ScenarioTray({ scenarios, openId, onOpen, onClearAll, onResize }: Props) {
+export default function ScenarioTray({ scenarios, openId, bridge, onOpen, onClearAll, onResize }: Props) {
   const ref = useRef<HTMLElement>(null);
   const latest = latestVersions(scenarios);
 
@@ -37,9 +39,15 @@ export default function ScenarioTray({ scenarios, openId, onOpen, onClearAll, on
               Clear all
             </button>
           )}
-          <span className="chip chip--violet" title="No direct link to Podium: copy the boundary into Podium's Coordinate Entry and enter the brief's numbers in its generator">
-            Podium: copy and paste
-          </span>
+          {bridge ? (
+            <span className="chip chip--ok" title="The ArcGIS Podium Bridge extension runs Podium for you in your signed-in Podium window and brings the designs back">
+              Podium: bridge connected
+            </span>
+          ) : (
+            <span className="chip chip--violet" title="No direct link to Podium: copy the boundary into Podium's Coordinate Entry and enter the brief's numbers in its generator">
+              Podium: copy and paste
+            </span>
+          )}
         </span>
       </div>
       {latest.length === 0 ? (

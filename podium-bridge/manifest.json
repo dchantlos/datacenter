@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "ArcGIS Podium Bridge",
+  "version": "0.1.0",
+  "description": "Sends a site and design brief from Data Center Site Selection to Podium, runs Podium's data centre generator in your signed-in Podium tab, and brings the designs back.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvfB7dPfY0y7+cVRa8CuKSEe1X26lyVjsXENQ7K089fUH2Kl8W9SUhttJt5SD48kv8tUoIcL3f4Fbwsq8Uy1s3waPx0E6TN4YIMjeKpdVqNiyfKCZfzupgUciBsCqMkmlBazgKUUG/n8h6g3Nmntpp1O2no/XEAi9El5o1vr7/pdC45k0z30B42Yth0MzvLVCVPXyWYkFyaHAlVtuIPD+zV+U+up4QWt5xh2sFdpcXmRZ4MTzOIb020EgIQ70c5myBWnhYOnY6IYdDZbuhhZ8UxSb5b8lexBLH4Snh/TKJVNWE0U0dVmh1ZNxKoLwwq+Ci3DI7a2NvFkt9SFsrcBzeQIDAQAB",
+  "minimum_chrome_version": "116",
+  "background": { "service_worker": "background.js" },
+  "permissions": ["scripting"],
+  "host_permissions": ["https://podium.app-dev.podium.io/*"],
+  "externally_connectable": { "matches": ["http://localhost:5190/*", "https://dchantlos.github.io/*"] },
+  "content_scripts": [{ "matches": ["https://podium.app-dev.podium.io/*"], "js": ["relay.js"], "run_at": "document_start" }]
+}

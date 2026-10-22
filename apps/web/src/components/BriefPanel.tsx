@@ -1,6 +1,7 @@
 import "@esri/calcite-components/components/calcite-icon";
 import { useEffect, useState } from "react";
 import type { GeoJsonPolygon } from "../geojson";
+import type { PodiumRun } from "../podiumBridge";
 import {
   CONTRACT_VERSION,
   briefLabel,
@@ -15,6 +16,7 @@ import {
   type NoBuildArea,
   type Scenario,
 } from "../scenarios";
+import type { PodiumDesignRecord } from "../store";
 
 const ac = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 1 });
 const dateTime = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -41,6 +43,13 @@ interface Props {
   onReview3D: () => void;
   onClose: () => void;
   onBack?: () => void;
+  /** Version of the ArcGIS Podium Bridge extension, or null when it isn't installed. */
+  bridge: string | null;
+  podiumRun: PodiumRun | null;
+  podiumDesign: PodiumDesignRecord | null;
+  onDesignInPodium: () => void;
+  onBringBack: () => void;
+  onStopPodium: () => void;
 }
 
 /** One scenario version: edit its brief, review exactly what would be sent, approve (freeze) it. */
@@ -226,7 +235,8 @@ function Edit({ scenario: s, onChange, onRetryElevation, onDelete, onReview, onR
   );
 }
 
-function Review({ scenario: s, appLink, onApprove, onNewVersion, onReview3D, onEdit }: Props & { onEdit: () => void }) {
+function Review(props: Props & { onEdit: () => void }) {
+  const { scenario: s, appLink, onApprove, onNewVersion, onEdit, bridge } = props;
   const [request, setRequest] = useState<BriefRequest | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const frozen = s.state === "approved";
@@ -297,7 +307,7 @@ function Review({ scenario: s, appLink, onApprove, onNewVersion, onReview3D, onE
           </li>
         </ul>
         <p className="note note--left">Never sent: owner names or mailing addresses (never requested), assessed values, or any other candidate.</p>
-        <CopyForPodium scenario={s} onReview3D={onReview3D} />
+        <PodiumHandoff {...props} />
         {failed && <p className="caveat">Couldn't build the request: {failed}</p>}
         {request && (
           <details className="brief__json">
@@ -308,8 +318,11 @@ function Review({ scenario: s, appLink, onApprove, onNewVersion, onReview3D, onE
       </div>
       {frozen && (
         <p className="note note--left">
-          Approved {s.approvedAt ? dateTime.format(s.approvedAt) : ""}. This version is frozen. To take it to Podium, copy the boundary above and enter the brief's
-          numbers in Podium's data center generator. Changes need a new version.
+          Approved {s.approvedAt ? dateTime.format(s.approvedAt) : ""}. This version is frozen.{" "}
+          {bridge
+            ? "Design in Podium sends exactly this version."
+            : "To take it to Podium, copy the boundary above and enter the brief's numbers in Podium's data center generator."}{" "}
+          Changes need a new version.
         </p>
       )}
       <footer className="brief__actions">
@@ -339,6 +352,85 @@ function positions(g: GeoJsonPolygon | null) {
   if (!g) return 0;
   const rings = g.type === "Polygon" ? g.coordinates : g.coordinates.flat();
   return rings.reduce((n, ring) => n + ring.length - 1, 0);
+}
+
+const STEP_ICON = { working: "spinner", done: "check", "needs-user": "exclamation-mark-triangle", error: "x" } as const;
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/** With the bridge: one button runs Podium for this version and brings the designs back. Without it: copy and paste. */
+function PodiumHandoff({ scenario, bridge, podiumRun: run, podiumDesign: design, onDesignInPodium, onBringBack, onStopPodium, onReview3D }: Props) {
+  if (!bridge) {
+    return (
+      <>
+        <CopyForPodium scenario={scenario} onReview3D={onReview3D} />
+        <p className="note note--left">
+          With the ArcGIS Podium Bridge extension installed, one button does this in Podium for you and brings the designs back. See the guide's Podium step.
+        </p>
+      </>
+    );
+  }
+  const running = run !== null && !run.finished;
+  const ready = briefProblems(scenario).length === 0;
+  const designs = design?.options.length ?? 0;
+  const models = design?.options.filter((o) => o.glb).length ?? 0;
+  return (
+    <div className="podium-handoff">
+      <div className="podium-handoff__actions">
+        <button
+          type="button"
+          className="btn"
+          disabled={!ready || running}
+          onClick={onDesignInPodium}
+          title={scenario.state === "draft" ? "Approves this version, then creates a Podium project from it and runs Podium's data centre generator" : "Creates a Podium project from this version and runs Podium's data centre generator"}
+        >
+          <calcite-icon icon="launch" scale="s" />
+          {designs ? "Design again in Podium" : "Design in Podium"}
+        </button>
+        {design && !running && (
+          <button type="button" className="btn btn--ghost" onClick={onBringBack} title="Reads the project's scenarios from Podium again, for example after editing them there">
+            Bring designs back
+          </button>
+        )}
+        {designs > 0 && (
+          <button type="button" className="btn btn--ghost" onClick={onReview3D}>
+            <calcite-icon icon="cube" scale="s" />
+            Review in 3D
+          </button>
+        )}
+        {running && (
+          <button type="button" className="link" onClick={onStopPodium}>
+            Stop
+          </button>
+        )}
+      </div>
+      {run && run.steps.length > 0 && (
+        <ol className="podium-steps" aria-live="polite">
+          {run.steps.map((step) => (
+            <li key={step.id} className={`podium-step podium-step--${step.status}`}>
+              <calcite-icon icon={STEP_ICON[step.status]} scale="s" />
+              <span>{step.detail}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {running && run.steps.length === 0 && <p className="muted">Opening Podium…</p>}
+      {run?.error && <p className="caveat">{run.error}</p>}
+      {design && (
+        <p className="muted">
+          {designs ? `${plural(designs, "design")} back from Podium${models ? `, ${models} with Podium's detailed 3D model` : ""}. ` : ""}
+          {design.projectUrl && (
+            <a className="link" href={design.projectUrl} target="_blank" rel="noreferrer">
+              Open the Podium project
+            </a>
+          )}
+        </p>
+      )}
+      <details className="brief__optional">
+        <summary>Do it by hand instead</summary>
+        <CopyForPodium scenario={scenario} onReview3D={onReview3D} />
+      </details>
+    </div>
+  );
 }
 
 /** Hand-off to Podium: the outline in the form Podium's Coordinate Entry accepts, and the way back for its design. */

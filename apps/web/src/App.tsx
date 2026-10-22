@@ -45,19 +45,24 @@ import {
   deleteScenario,
   listRuns,
   listScenarios,
+  listDesigns,
   loadCounter,
   loadCriteria,
   loadRun,
   loadShortlist,
+  putDesign,
   putScenario,
   putShortlist,
   removeShortlist,
   saveCounter,
   saveCriteria,
   saveRun,
+  type PodiumDesignRecord,
+  type PodiumOption,
   type RunSummary,
   type ShortlistEntry,
 } from "./store";
+import { advanceRun, detectBridge, fromBase64, podiumJob, runBridge, type BridgeEvent, type BridgeJob, type PodiumRun } from "./podiumBridge";
 import {
   claimScenarioId,
   computeBuildable,
@@ -84,11 +89,12 @@ import RunsPanel from "./components/RunsPanel";
 import LivePreview, { type PreviewStatus } from "./components/LivePreview";
 import type { SiteCheckState } from "./components/SiteCheck";
 import Hud from "./components/Hud";
+import type { Review3DProps } from "./components/Review3D";
 
 // The 3D view loads only when a design is reviewed. A failed load (offline, or a tab older than the last deploy) must not blank the app.
 const Review3D = lazy(() =>
   import("./components/Review3D").catch(() => ({
-    default: ({ onClose }: { scenario: Scenario; onClose: () => void }) => (
+    default: ({ onClose }: Review3DProps) => (
       <div className="map-status glass" role="alert">
         Couldn't load the 3D view. Check your connection and reload.{" "}
         <button type="button" className="link" onClick={onClose}>
@@ -207,6 +213,14 @@ export default function App() {
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [openUid, setOpenUid] = useState<string | null>(null);
   const [reviewUid, setReviewUid] = useState<string | null>(null);
+  /** Version of the ArcGIS Podium Bridge extension, or null when it isn't installed. */
+  const [bridge, setBridge] = useState<string | null>(null);
+  const [podiumRuns, setPodiumRuns] = useState<ReadonlyMap<string, PodiumRun>>(new Map());
+  const [designs, setDesigns] = useState<ReadonlyMap<string, PodiumDesignRecord>>(new Map());
+  const designsRef = useRef(designs);
+  const podiumJobs = useRef(new Map<string, { cancel: () => void }>());
+  /** Podium scenarios received in each job, so a job's first design replaces the earlier set. */
+  const receivedRef = useRef(new Map<string, Set<string>>());
   const [creating, setCreating] = useState(false);
   const [trayHeight, setTrayHeight] = useState(0);
   const trayHeightRef = useRef(0);
@@ -286,16 +300,19 @@ export default function App() {
     let cancelled = false;
     void (async () => {
       try {
-        const [criteria, runCounter, runs, entries, storedScenarios, scenarioCounter] = await Promise.all([
+        const [criteria, runCounter, runs, entries, storedScenarios, scenarioCounter, storedDesigns] = await Promise.all([
           loadCriteria(),
           loadCounter("runCounter"),
           listRuns(),
           loadShortlist(),
           listScenarios(),
           loadCounter("scenarioCounter"),
+          listDesigns(),
         ]);
         if (cancelled) return;
         const savedScenarios = storedScenarios.map(withBriefDefaults);
+        designsRef.current = new Map(storedDesigns.map((d) => [d.uid, d]));
+        setDesigns(designsRef.current);
         if (criteria) {
           setRules({ ...DEFAULT_RULES, ...criteria.rules });
           setWeights({ ...DEFAULT_WEIGHTS, ...criteria.weights });
@@ -770,6 +787,74 @@ export default function App() {
     zoomMap(toolsRef.current?.view, site.extent?.clone().expand(1.8) ?? site);
   };
 
+  useEffect(() => {
+    let alive = true;
+    const check = () => void detectBridge().then((version) => alive && setBridge(version));
+    check();
+    window.addEventListener("focus", check);
+    return () => {
+      alive = false;
+      window.removeEventListener("focus", check);
+    };
+  }, []);
+
+  const saveDesign = (record: PodiumDesignRecord) => {
+    designsRef.current = new Map(designsRef.current).set(record.uid, record);
+    setDesigns(designsRef.current);
+    putDesign(record).catch(storageFailed);
+  };
+
+  const onBridgeEvent = (uid: string, jobId: string, event: BridgeEvent) => {
+    setPodiumRuns((prev) => {
+      const run = prev.get(uid);
+      return run?.jobId === jobId ? new Map(prev).set(uid, advanceRun(run, event)) : prev;
+    });
+    const current = designsRef.current.get(uid);
+    const now = Date.now();
+    if (event.type === "committed") saveDesign({ uid, projectId: event.projectId, projectUrl: event.projectUrl, options: [], updatedAt: now });
+    else if (event.type === "design") {
+      const received = receivedRef.current.get(jobId) ?? new Set<string>();
+      receivedRef.current.set(jobId, received);
+      const base = current?.projectId === event.projectId ? current : { uid, projectId: event.projectId, projectUrl: current?.projectUrl ?? null, options: [], updatedAt: now };
+      const kept = received.size ? base.options : [];
+      received.add(event.scenario.id);
+      const option: PodiumOption = { ...event.scenario, model: event.model, glb: base.options.find((o) => o.id === event.scenario.id)?.glb ?? null };
+      const at = kept.findIndex((o) => o.id === option.id);
+      saveDesign({ ...base, options: at < 0 ? [...kept, option] : kept.map((o, i) => (i === at ? option : o)), updatedAt: now });
+      if (received.size === 1) setReviewUid(uid);
+    } else if (event.type === "glb" && current) {
+      const glb = fromBase64(event.base64);
+      saveDesign({ ...current, options: current.options.map((o) => (o.id === event.scenarioId ? { ...o, glb } : o)), updatedAt: now });
+    } else if (event.type === "done" && current && event.projectUrl && current.projectUrl !== event.projectUrl) {
+      saveDesign({ ...current, projectUrl: event.projectUrl, updatedAt: now });
+    }
+    if (event.type === "done" || event.type === "error") {
+      podiumJobs.current.delete(uid);
+      receivedRef.current.delete(jobId);
+    }
+  };
+
+  /** "design" approves the version if needed and runs Podium for it; "fetch" reads its Podium project again. */
+  const sendToPodium = async (uid: string, mode: BridgeJob["mode"]) => {
+    const s = scenarios.find((x) => x.uid === uid);
+    if (!s || podiumJobs.current.has(uid)) return;
+    podiumJobs.current.set(uid, { cancel: () => undefined });
+    if (mode === "design" && s.state === "draft") approveScenario(uid);
+    const styles = [...designsRef.current.values()].sort((a, b) => b.updatedAt - a.updatedAt).map((d) => d.projectId);
+    const record = designsRef.current.get(uid);
+    // A design job that stopped part-way carries on in the project it made, instead of starting a second one.
+    const projectId = mode === "fetch" || !record?.options.length ? record?.projectId : undefined;
+    const show = (run: PodiumRun) => setPodiumRuns((prev) => new Map(prev).set(uid, run));
+    try {
+      const job = await podiumJob(s, mode, projectId, styles);
+      show({ jobId: job.jobId, mode, steps: [], finished: false, error: null });
+      podiumJobs.current.set(uid, runBridge(job, (event) => onBridgeEvent(uid, job.jobId, event)));
+    } catch (error) {
+      podiumJobs.current.delete(uid);
+      show({ jobId: "", mode, steps: [], finished: true, error: `Couldn't start: ${messageOf(error)}` });
+    }
+  };
+
   const createScenarioFor = async (key: string) => {
     const candidate = candidates.get(key);
     const outcome = ranking?.byKey.get(key);
@@ -853,6 +938,8 @@ export default function App() {
       }
       setScenarios([]);
       setOpenUid(null);
+      designsRef.current = new Map();
+      setDesigns(designsRef.current);
     } catch (error) {
       setStorageError(`Couldn't delete the scenarios: ${messageOf(error)}`);
     }
@@ -960,7 +1047,8 @@ export default function App() {
   const ranThisArea = run !== null && run.area === area;
   const latestScenarios = latestVersions(scenarios);
   const approvedCount = scenarios.filter((s) => s.state === "approved").length;
-  const firstOpen = [area !== null, !checking && live > 0, ranThisArea, shortlist.size > 0, scenarios.length > 0, approvedCount > 0, false].indexOf(false);
+  const designed = [...designs.values()].some((d) => d.options.length > 0);
+  const firstOpen = [area !== null, !checking && live > 0, ranThisArea, shortlist.size > 0, scenarios.length > 0, approvedCount > 0, designed, false].indexOf(false);
   const stateAt = (i: number): StepState => (i < firstOpen ? (i === 1 && failed ? "warn" : "done") : i === firstOpen ? "now" : "todo");
   const km2 = areaKm2?.toLocaleString("en-US", { maximumFractionDigits: 1 });
   const steps: Step[] = [
@@ -1022,14 +1110,18 @@ export default function App() {
       label: "Podium",
       state: stateAt(6),
       partner: true,
-      title: approvedCount
-        ? "Next: copy the approved brief into Podium: the boundary, then the numbers"
-        : "Approve a brief, then copy it into Podium",
+      title: bridge
+        ? designed
+          ? "Designs are back from Podium"
+          : "Open a scenario's brief, review it and press Design in Podium"
+        : approvedCount
+          ? "Next: copy the approved brief into Podium: the boundary, then the numbers"
+          : "Approve a brief, then copy it into Podium",
     },
     {
       label: "Review 3D",
       state: stateAt(7),
-      title: "Import Podium's design (GLB) and review it on the site in 3D",
+      title: bridge ? "Review Podium's designs on the site in 3D" : "Import Podium's design (GLB) and review it on the site in 3D",
       onClick: latestScenarios.length ? () => setReviewUid((openScenario ?? latestScenarios.at(-1)!).uid) : undefined,
     },
   ];
@@ -1189,6 +1281,12 @@ export default function App() {
             onReview3D={() => setReviewUid(openScenario.uid)}
             onClose={() => setOpenUid(null)}
             onBack={run ? () => setOpenUid(null) : undefined}
+            bridge={bridge}
+            podiumRun={podiumRuns.get(openScenario.uid) ?? null}
+            podiumDesign={designs.get(openScenario.uid) ?? null}
+            onDesignInPodium={() => void sendToPodium(openScenario.uid, "design")}
+            onBringBack={() => void sendToPodium(openScenario.uid, "fetch")}
+            onStopPodium={() => podiumJobs.current.get(openScenario.uid)?.cancel()}
           />
         ) : showResults ? (
           <Results
@@ -1220,6 +1318,7 @@ export default function App() {
         <ScenarioTray
           scenarios={scenarios}
           openId={openScenario?.id ?? null}
+          bridge={bridge !== null}
           onOpen={(uid) => showScenario(uid)}
           onClearAll={creating || runStatus.status === "running" ? undefined : () => void clearAllScenarios()}
           onResize={setTrayHeight}
@@ -1252,7 +1351,13 @@ export default function App() {
 
       {reviewScenario && (
         <Suspense fallback={null}>
-          <Review3D key={reviewScenario.uid} scenario={reviewScenario} onClose={() => setReviewUid(null)} />
+          <Review3D
+            key={reviewScenario.uid}
+            scenario={reviewScenario}
+            design={designs.get(reviewScenario.uid) ?? null}
+            running={Boolean(podiumRuns.get(reviewScenario.uid) && !podiumRuns.get(reviewScenario.uid)?.finished)}
+            onClose={() => setReviewUid(null)}
+          />
         </Suspense>
       )}
     </div>

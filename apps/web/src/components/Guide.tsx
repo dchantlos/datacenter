@@ -95,21 +95,25 @@ const PAGES: Page[] = [
     title: "Send to Podium",
     why: "Podium turns an approved brief into data center design options.",
     actions: [
-      "The app has no direct link to Podium, so the brief goes over by copy and paste.",
-      "Press **Copy boundary for Podium** in the brief. In Podium, open the project's Site, choose **Coordinate Entry**, paste, press **Parse & insert**, then **Save changes**.",
-      "In Podium's data center generator, enter the brief's numbers: target IT capacity, max height and any optional limits.",
+      "With the **ArcGIS Podium Bridge** extension in Chrome or Edge, open the brief, press **Review brief →**, then **Design in Podium**. It approves the version if needed.",
+      "The bridge works in a Podium window, signed in as you: it creates the project, sets the site boundary, fills in the data center generator, generates the options, saves them as scenarios and brings them back. Keep that window visible while it works.",
+      "Without the extension, press **Copy boundary for Podium**. In Podium, open the project's Site, choose **Coordinate Entry**, paste, press **Parse & insert**, then **Save changes**, and enter the brief's numbers in Podium's data center generator.",
       "**Download (JSON)** on an approved scenario saves the whole brief as a file.",
     ],
+    see: "The brief lists each step as the bridge does it. The 3D review opens when the first design arrives.",
+    tip: "To install the bridge: open chrome://extensions, switch on **Developer mode**, press **Load unpacked** and choose the podium-bridge folder of this project. Sign in to Podium in the same browser first.",
     showMe: "scenarios",
   },
   {
     title: "Review the designs in 3D",
     why: "Podium's design is placed on the real parcel and terrain, so it can be checked where it will be built.",
     actions: [
-      "In Podium, open the scenario with the design and export it: **Downloads**, **3D Model (GLB)**.",
-      "Here, open the scenario and press **Review in 3D**, then **Import Podium design (GLB)** and choose the file.",
+      "With the bridge, the designs come back by themselves. Pick one at the top of **Review in 3D**, and switch between **Podium's 3D model** and **Outlines**.",
+      "After changing a design in Podium, press **Bring designs back** in the brief.",
+      "Without the bridge: in Podium, export the scenario (**Downloads**, **Scenario Model (GLB)**), then press **Review in 3D** here, **Import Podium design (GLB)** and choose the file.",
       "Each building is placed where Podium put it. Podium designs on a flat site, so each one sits at the average ground level under it.",
     ],
+    see: "Podium's figures for the chosen design: buildings, IT capacity, floor area, height, cost, construction time and water.",
     showMe: "scenarios",
   },
 ];
@@ -121,8 +125,8 @@ const OVERVIEW = [
   "Read why each site ranks where it does",
   "Shortlist the best sites",
   "Prepare a design brief for a site",
-  "Copy the brief into Podium",
-  "Review Podium's design in 3D",
+  "Send the brief to Podium",
+  "Review Podium's designs in 3D",
 ];
 
 const SEEN_KEY = "dcss.guide";

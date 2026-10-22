@@ -2354,6 +2354,113 @@ input.wbar:focus-visible::-moz-range-thumb {
   overflow-wrap: anywhere;
 }
 
+.review3d__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.review3d__switch {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.review3d__switch .bmswitch {
+  align-self: flex-start;
+  border: 1px solid var(--border-soft);
+}
+
+.review3d__switch .bmswitch button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.review3d__switch small {
+  font: 500 10.5px/1.3 var(--font);
+}
+
+/* Bridge hand-off in the brief: one button, then Podium's progress step by step */
+.podium-handoff {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.podium-handoff__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.podium-handoff p {
+  margin: 0;
+}
+
+.podium-steps {
+  list-style: none;
+  margin: 0;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.03);
+  font: 500 11.5px/1.35 var(--font);
+  color: var(--dim);
+}
+
+.podium-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.podium-step calcite-icon {
+  flex: none;
+  margin-top: 1px;
+}
+
+.podium-step--done calcite-icon {
+  color: #4ade80;
+}
+
+.podium-step--working {
+  color: #fff;
+}
+
+.podium-step--working calcite-icon {
+  color: var(--cyan);
+  animation: podium-spin 1.2s linear infinite;
+}
+
+.podium-step--needs-user {
+  color: #fde68a;
+}
+
+.podium-step--needs-user calcite-icon {
+  color: var(--amber);
+}
+
+.podium-step--error calcite-icon {
+  color: #fb7185;
+}
+
+@keyframes podium-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .podium-step--working calcite-icon {
+    animation: none;
+  }
+}
+
 /* Guide: step-by-step directions, in the open map area between the legend and the right panel */
 .guide {
   position: absolute;

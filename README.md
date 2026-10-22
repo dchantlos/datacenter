@@ -29,8 +29,9 @@ It is the first half of a larger workflow: ArcGIS finds and explains the best la
    - Zoning: at least half the parcel must be in an allowed zone. Industrial zones are allowed by default, and any zone can be switched on or off.
    - Weighted preferences (default weight): distance to transmission lines of 115 kV or more (30), flat share (25), distance to a primary road (20), adjacent parcels of 40 acres or more (15), groundwater basin designation (10).
 5. **Run the analysis.** Every candidate parcel in the area is checked, slope is measured with USGS 3DEP, and the parcels that pass are ranked. Changing rules or weights afterwards re-ranks the results without a new run.
-6. **Shortlist and brief.** Shortlist sites and create a scenario: a design brief with the site boundary, the buildable area after a setback, no-build areas, ground elevation and the data sources used. Review it, approve it, download it as JSON, and copy the site boundary into Podium.
-7. **Review Podium's design in 3D.** Import the 3D model (GLB) exported from Podium. Each building is placed where Podium put it, on the real parcel and terrain.
+6. **Shortlist and brief.** Shortlist sites and create a scenario: a design brief with the site boundary, the buildable area after a setback, no-build areas, ground elevation and the data sources used. Review it, approve it and download it as JSON.
+7. **Design in Podium.** With the ArcGIS Podium Bridge browser extension, one button creates the Podium project, sets the site boundary, runs Podium's data center generator with the brief's numbers, saves the options as scenarios and brings them back. Without it, copy the site boundary into Podium by hand.
+8. **Review Podium's designs in 3D.** Each design is placed where Podium put it, on the real parcel and terrain, as Podium's own 3D model or as outlines, with Podium's figures. A GLB exported from Podium can also be imported by hand.
 
 An in-app guide walks through each step.
 
@@ -40,8 +41,8 @@ An in-app guide walks through each step.
 |---|---|
 | Live preview, area, data check, criteria, ranking | Built |
 | Shortlist, scenarios and design brief (JSON download) | Built |
-| Send the approved brief to Podium | By hand: copy the boundary into Podium's Coordinate Entry and type the brief's numbers into its data center generator |
-| Review returned designs in 3D | Built: import the 3D model (GLB) exported from Podium; each building is placed on the parcel and set on the terrain |
+| Send the approved brief to Podium | Built with the ArcGIS Podium Bridge extension (Chrome and Edge). Without it, by hand: copy the boundary into Podium's Coordinate Entry and type the brief's numbers into its data center generator |
+| Review returned designs in 3D | Built: designs come back through the bridge, or import the 3D model (GLB) exported from Podium; each building is placed on the parcel and set on the terrain |
 
 ## Data sources
 
@@ -74,8 +75,8 @@ Owner names and mailing addresses on the parcel records are never requested or s
 
 ## How it works
 
-- **Browser only.** No server, no sign-in and no API key. The app talks directly to the public services above.
-- **Saved in your browser.** Runs, the shortlist and scenarios are stored in your own browser (IndexedDB). They are not shared between people or devices.
+- **Browser only.** No server, no sign-in and no API key. The app talks directly to the public services above, and to Podium only through the optional bridge extension.
+- **Saved in your browser.** Runs, the shortlist, scenarios and the designs back from Podium are stored in your own browser (IndexedDB). They are not shared between people or devices.
 - **Stack.** React 19, Vite, TypeScript, ArcGIS Maps SDK for JavaScript 5.1 (core and map components) and Calcite.
 - **Rules engine.** `apps/web/src/criteria.ts` holds the exclusions, thresholds and scoring as plain TypeScript with unit tests, so results can be checked outside the map.
 
@@ -85,12 +86,45 @@ Owner names and mailing addresses on the parcel records are never requested or s
 | `analysis.ts`, `siteFacts.ts`, `parcels.ts` | Running an analysis and measuring each parcel |
 | `preview.ts`, `raster.ts`, `previewMap.ts` | The live preview |
 | `scenarios.ts`, `geojson.ts` | Design briefs and their export |
-| `store.ts` | Saving runs, the shortlist and scenarios in the browser |
+| `podiumBridge.ts`, `podiumModel.ts`, `podiumGlb.ts` | Talking to the Podium bridge, and reading Podium's designs and 3D models |
+| `store.ts` | Saving runs, the shortlist, scenarios and Podium's designs in the browser |
 | `sources.ts`, `health.ts`, `webmap.ts` | Data source registry and live checks |
 | `mapStyle.ts` | Map symbols and basemap |
 | `App.tsx`, `components/` | The interface |
 
 The `design/` folder holds the original design concept.
+
+## The Podium bridge
+
+Podium has no public API for this, and its server doesn't accept calls from other websites. The bridge is a small Chrome and Edge extension (`podium-bridge/`) that does the Podium steps in a Podium window, signed in as you, the way you would by hand.
+
+**Install.** Sign in to Podium in Chrome or Edge. Open `chrome://extensions` (or `edge://extensions`), switch on **Developer mode**, press **Load unpacked** and choose the `podium-bridge` folder. The app shows **Podium: bridge connected** in the scenario tray.
+
+**Use.** Open a scenario's brief, press **Review brief →**, then **Design in Podium**. The bridge:
+
+1. creates a Podium project named after the scenario version (United States, metric, Podium's data centre area policy and engineering configuration),
+2. sets the site boundary,
+3. turns on PODII and fills in its data centre generator with the brief's IT capacity, max height and number of options,
+4. starts the design, generates the options and saves them as Podium scenarios,
+5. sends each design back (Podium's model and figures) and exports Podium's 3D model (GLB) of each one.
+
+The brief lists each step as it happens, and the 3D review opens when the first design arrives. In tests, two options took two to three minutes, most of it Podium's generator. **Bring designs back** reads the project again after changes made in Podium. If a run stops part-way, **Design in Podium** carries on in the same project instead of making a second one.
+
+| File (in `podium-bridge`) | What it does |
+|---|---|
+| `manifest.json` | Chrome extension manifest. Only the live app and `localhost:5190` can talk to the bridge |
+| `background.js` | Takes a job from the app, opens the Podium window and passes progress back |
+| `driver.js` | Runs in the Podium page and does the steps |
+| `relay.js` | Passes the driver's messages to `background.js` |
+
+**Keep in mind.**
+
+- It uses Podium's own internal web requests and page, which aren't a published API. A Podium update can break it; the brief then shows which step failed, and the copy-and-paste way still works.
+- It works in the Podium development environment (`podium.app-dev.podium.io`) that the app links to.
+- It creates real projects and scenarios under your Podium account. Exporting the 3D model also saves a copy in the Podium project's files.
+- Keep the Podium window visible while it works. Podium pauses in a hidden tab or minimised window, and the brief asks you to bring it back.
+- Podium's 3D model of a design larger than 40 MB isn't sent back; export it in Podium and import it in **Review in 3D**.
+- Chrome and Edge only.
 
 ## Run it locally
 
