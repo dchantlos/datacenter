@@ -29,7 +29,7 @@ It is the first half of a larger workflow: ArcGIS finds and explains the best la
    - Zoning: at least half the parcel must be in an allowed zone. Industrial zones are allowed by default, and any zone can be switched on or off.
    - Weighted preferences (default weight): distance to transmission lines of 115 kV or more (30), flat share (25), distance to a primary road (20), adjacent parcels of 40 acres or more (15), groundwater basin designation (10).
 5. **Run the analysis.** Every candidate parcel in the area is checked, slope is measured with USGS 3DEP, and the parcels that pass are ranked. Changing rules or weights afterwards re-ranks the results without a new run.
-6. **Shortlist and brief.** Shortlist sites and create a scenario: a design brief with the site boundary, the buildable area after a setback, no-build areas, ground elevation and the data sources used. Review it, approve it, and download it as JSON.
+6. **Shortlist and brief.** Shortlist sites and create a scenario: a design brief with the site boundary, the buildable area after a setback, no-build areas, ground elevation and the data sources used. Review it, approve it, download it as JSON, and copy the site boundary into Podium.
 
 An in-app guide walks through each step.
 
@@ -39,8 +39,8 @@ An in-app guide walks through each step.
 |---|---|
 | Live preview, area, data check, criteria, ranking | Built |
 | Shortlist, scenarios and design brief (JSON download) | Built |
-| Send the approved brief to Podium | Planned: needs Podium's API details |
-| Review returned designs in 3D | Planned |
+| Send the approved brief to Podium | By hand: copy the boundary into Podium's Coordinate Entry and type the brief's numbers into its data center generator |
+| Review returned designs in 3D | Planned: import designs exported from Podium as 3D models (GLB) |
 
 ## Data sources
 

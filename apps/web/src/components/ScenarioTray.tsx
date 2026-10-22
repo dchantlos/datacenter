@@ -37,8 +37,8 @@ export default function ScenarioTray({ scenarios, openId, onOpen, onClearAll, on
               Clear all
             </button>
           )}
-          <span className="chip chip--violet" title="Sending needs Podium's API details and the connector built on them">
-            Podium connector: contract pending
+          <span className="chip chip--violet" title="No direct link to Podium: copy the boundary into Podium's Coordinate Entry and enter the brief's numbers in its generator">
+            Podium: copy and paste
           </span>
         </span>
       </div>

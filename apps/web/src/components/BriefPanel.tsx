@@ -307,8 +307,8 @@ function Review({ scenario: s, appLink, onApprove, onNewVersion, onEdit }: Props
       </div>
       {frozen && (
         <p className="note note--left">
-          Approved {s.approvedAt ? dateTime.format(s.approvedAt) : ""}. This version is frozen. Sending needs the Podium connector, which waits on Podium's answers. Changes
-          need a new version.
+          Approved {s.approvedAt ? dateTime.format(s.approvedAt) : ""}. This version is frozen. To take it to Podium, copy the boundary above and enter the brief's
+          numbers in Podium's data center generator. Changes need a new version.
         </p>
       )}
       <footer className="brief__actions">
@@ -325,7 +325,7 @@ function Review({ scenario: s, appLink, onApprove, onNewVersion, onEdit }: Props
             New version
           </button>
         ) : (
-          <button type="button" className="btn" disabled={!request} onClick={onApprove} title="Freezes this version until Podium can receive it">
+          <button type="button" className="btn" disabled={!request} onClick={onApprove} title="Freezes this version, so what goes into Podium is what was reviewed">
             Approve for Podium
           </button>
         )}
@@ -340,7 +340,7 @@ function positions(g: GeoJsonPolygon | null) {
   return rings.reduce((n, ring) => n + ring.length - 1, 0);
 }
 
-/** Hand-off until the connector exists: the outline in the form Podium's Coordinate Entry accepts. */
+/** Hand-off to Podium: the outline in the form Podium's Coordinate Entry accepts. */
 function CopyForPodium({ scenario }: { scenario: Scenario }) {
   const [message, setMessage] = useState<string | null>(null);
   const copy = async () => {

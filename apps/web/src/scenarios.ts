@@ -261,7 +261,7 @@ export function briefProblems(s: Scenario): string[] {
 }
 
 export function scenarioStatus(s: Scenario) {
-  if (s.state === "approved") return { label: "Awaiting Podium contract", chip: "chip--violet", action: "Details" };
+  if (s.state === "approved") return { label: "Ready for Podium", chip: "chip--violet", action: "Details" };
   return briefProblems(s).length === 0
     ? { label: "Ready for review", chip: "chip--ok", action: "Review brief →" }
     : { label: "Draft", chip: "", action: "Edit" };

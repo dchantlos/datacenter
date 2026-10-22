@@ -1007,10 +1007,10 @@ export default function App() {
       state: stateAt(6),
       partner: true,
       title: approvedCount
-        ? "Next: send the approved brief to Podium. Needs Podium's answers and the connector"
-        : "Planned: send the brief to Podium. Needs the Podium connector",
+        ? "Next: copy the approved brief into Podium: the boundary, then the numbers"
+        : "Approve a brief, then copy it into Podium",
     },
-    { label: "Review 3D", state: stateAt(7), title: "Planned: review Podium designs on the site in 3D" },
+    { label: "Review 3D", state: stateAt(7), title: "Planned: import Podium's 3D models (GLB) and review them on the site" },
   ];
 
   const showMe = (target: GuideTarget) => {
