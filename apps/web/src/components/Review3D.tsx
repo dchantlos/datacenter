@@ -2,14 +2,10 @@ import "@esri/calcite-components/components/calcite-icon";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import Graphic from "@arcgis/core/Graphic.js";
 import EsriMap from "@arcgis/core/Map.js";
-import Mesh from "@arcgis/core/geometry/Mesh.js";
 import Multipoint from "@arcgis/core/geometry/Multipoint.js";
 import Polygon from "@arcgis/core/geometry/Polygon.js";
 import SpatialReference from "@arcgis/core/geometry/SpatialReference.js";
 import * as projectOperator from "@arcgis/core/geometry/operators/projectOperator.js";
-import MeshComponent from "@arcgis/core/geometry/support/MeshComponent.js";
-import MeshLocalVertexSpace from "@arcgis/core/geometry/support/MeshLocalVertexSpace.js";
-import MeshMaterial from "@arcgis/core/geometry/support/MeshMaterial.js";
 import GraphicsLayer from "@arcgis/core/layers/GraphicsLayer.js";
 import ExtrudeSymbol3DLayer from "@arcgis/core/symbols/ExtrudeSymbol3DLayer.js";
 import FillSymbol3DLayer from "@arcgis/core/symbols/FillSymbol3DLayer.js";
@@ -18,13 +14,15 @@ import PolygonSymbol3D from "@arcgis/core/symbols/PolygonSymbol3D.js";
 import SimpleFillSymbol from "@arcgis/core/symbols/SimpleFillSymbol.js";
 import SolidEdges3D from "@arcgis/core/symbols/edges/SolidEdges3D.js";
 import SceneView from "@arcgis/core/views/SceneView.js";
+import { buildingMesh, designMesh } from "../designMesh";
 import { contains, type Position } from "../geojson";
-import { parseGlb, podiumFrame, splitBuildings, type Building, type PodiumFrame } from "../podiumGlb";
+import { parseGlb, podiumFrame, splitBuildings, type PodiumFrame } from "../podiumGlb";
 import { designFromModel, designTotals, matchOutline, type DesignBuilding, type SectionKind } from "../podiumModel";
 import { podiumBoundary, type Scenario } from "../scenarios";
 import { makeBasemap, money, number, storedBasemap } from "../scene3d";
 import type { PodiumDesignRecord, PodiumOption } from "../store";
 import DesignSwitcher from "./DesignSwitcher";
+import PublishPanel from "./PublishPanel";
 import SceneTools from "./SceneTools";
 
 const EDGES = new SolidEdges3D({ color: [15, 23, 42, 0.5], size: 0.5 });
@@ -76,34 +74,13 @@ async function groundLevels(view: SceneView, buildings: Footprint[], frame: Podi
   return buildings.map((_, i) => z.slice(i * 5, i * 5 + 5).reduce((sum, v) => sum + v, 0) / 5);
 }
 
-/** One building as a mesh: metres east, north and up from its footprint centre, set on the ground there. */
-function toMesh(b: Building, [lon, lat]: Position, ground: number) {
-  const position = new Float64Array(b.parts.reduce((n, p) => n + p.positions.length, 0));
-  const components: MeshComponent[] = [];
-  let at = 0;
-  for (const part of b.parts) {
-    for (let i = 0; i < part.positions.length; i += 3) {
-      position[at + i] = part.positions[i] - b.center[0];
-      position[at + i + 1] = part.positions[i + 1] - b.center[1];
-      position[at + i + 2] = part.positions[i + 2];
-    }
-    const first = at / 3;
-    const alpha = part.color[3];
-    components.push(
-      new MeshComponent({
-        faces: new Uint32Array(part.positions.length / 3).map((_, k) => first + k),
-        shading: "flat",
-        material: new MeshMaterial({ color: part.color, doubleSided: true, alphaMode: alpha < 1 ? "blend" : "opaque" }),
-      }),
-    );
-    at += part.positions.length;
-  }
-  return new Mesh({
-    spatialReference: SpatialReference.WGS84,
-    vertexSpace: new MeshLocalVertexSpace({ origin: [lon, lat, ground] }),
-    vertexAttributes: { position },
-    components,
-  });
+/** Podium designs in a frame centred on the outline it was given: the buildable area now, the whole parcel before. */
+async function designFrame(scenario: Scenario, siteBoundary: Position[] | null) {
+  const [buildable, whole] = await Promise.all([podiumBoundary(scenario), podiumBoundary(scenario, "parcel")]);
+  const toXY = (ring: Position[]) => ring.map(podiumFrame(ring).toXY);
+  const match = matchOutline([buildable, whole], toXY, siteBoundary);
+  const given = match?.outline ?? buildable;
+  return { buildable, whole, given, shift: match?.shift ?? null, frame: podiumFrame(given.ring) };
 }
 
 function footprintOf(b: DesignBuilding): Footprint {
@@ -205,13 +182,7 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
     const label = source.kind === "file" ? source.name : (option?.name ?? "");
     void (async () => {
       setStatus({ kind: "working", text: glb ? `Reading ${label}…` : `Drawing ${label}…` });
-      // Podium designs in a frame centred on the outline it was given: the buildable area now, the whole parcel before.
-      const [buildable, whole] = await Promise.all([podiumBoundary(scenario), podiumBoundary(scenario, "parcel")]);
-      const toXY = (ring: Position[]) => ring.map(podiumFrame(ring).toXY);
-      const match = matchOutline([buildable, whole], toXY, parsed?.siteBoundary ?? null);
-      const given = match?.outline ?? buildable;
-      const shift = match?.shift ?? null;
-      const frame = podiumFrame(given.ring);
+      const { buildable, whole, given, shift, frame } = await designFrame(scenario, parsed?.siteBoundary ?? null);
       const parcelXY = whole.ring.map(frame.toXY);
       let footprints: Footprint[];
       let graphics: (ground: number[]) => Graphic[];
@@ -220,7 +191,7 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
         const buildings = splitBuildings(parseGlb(glb));
         if (!buildings.length) throw new Error("the file has no building geometry");
         footprints = buildings;
-        graphics = (ground) => buildings.map((b, i) => new Graphic({ geometry: toMesh(b, frame.toLonLat(b.center), ground[i]), symbol: DESIGN_SYMBOL }));
+        graphics = (ground) => buildings.map((b, i) => new Graphic({ geometry: buildingMesh(b, frame.toLonLat(b.center), ground[i]), symbol: DESIGN_SYMBOL }));
       } else {
         if (!parsed?.buildings.length) throw new Error("this design has no buildings");
         moved = shift !== null && shift.rms > SAME_SITE_RMS_M;
@@ -276,6 +247,17 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
     const graphics = designRef.current?.graphics.toArray() ?? [];
     const target = graphics.length ? graphics : parcel;
     if (view && target) void view.goTo({ target, tilt: 60 }).catch(() => undefined);
+  };
+
+  /** Podium's 3D model of the selected design as one mesh, set on the terrain as it is drawn. */
+  const publishMesh = async () => {
+    if (!view || !option?.glb) throw new Error("this design has no 3D model from Podium");
+    const { frame } = await designFrame(scenario, parsed?.siteBoundary ?? null);
+    const buildings = splitBuildings(parseGlb(option.glb));
+    if (!buildings.length) throw new Error("Podium's 3D model has no building geometry");
+    const mesh = designMesh(buildings, frame, await groundLevels(view, buildings, frame));
+    if (!mesh) throw new Error("couldn't combine the buildings into one 3D object");
+    return mesh;
   };
 
   useEffect(() => {
@@ -441,6 +423,8 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
             )}
           </>
         )}
+
+        {option && <PublishPanel scenario={scenario} option={option} projectUrl={design?.projectUrl ?? null} totals={totals} makeMesh={publishMesh} />}
 
         {!options.length && (
           <p className="note note--left">

@@ -2625,6 +2625,75 @@ input.wbar:focus-visible::-moz-range-thumb {
   font: 500 10.5px/1.3 var(--font);
 }
 
+/* Publish the selected design to ArcGIS Online, from the 3D review panel */
+.publish {
+  border-top: 1px solid var(--border-soft);
+  padding-top: 10px;
+}
+
+.publish summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font: 600 12px/1.3 var(--font);
+  color: var(--dim);
+}
+
+.publish[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.publish p,
+.publish small {
+  margin: 0;
+}
+
+.publish small {
+  font: 500 10.5px/1.35 var(--font);
+}
+
+.publish__url {
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  font: 500 11px/1.35 var(--mono);
+  color: #fff;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.publish__actions,
+.publish__who {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.publish__who span {
+  flex: 1;
+  min-width: 0;
+  font: 500 12px/1.3 var(--font);
+}
+
+.publish__select {
+  width: 100%;
+  padding: 7px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(15, 23, 42, 0.9);
+  font: 600 12px/1.2 var(--font);
+  color: #fff;
+}
+
+.publish .btn {
+  align-self: flex-start;
+}
+
 /* Bridge hand-off in the brief: one button, then Podium's progress step by step */
 .podium-handoff {
   display: flex;

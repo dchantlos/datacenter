@@ -130,6 +130,27 @@ The brief lists each step as it happens, and the 3D review opens once everything
 - Podium's 3D model of a design larger than 40 MB isn't sent back; export it in Podium and import it in **Review in 3D**.
 - Chrome and Edge only.
 
+## Publish designs to ArcGIS Online
+
+**Publish to ArcGIS Online**, in the **Review in 3D** panel, puts the selected design in a 3D object layer of the ArcGIS organization you sign in to. The design becomes one 3D object, Podium's own 3D model with each building on its ground level, and its attributes link back to Podium:
+
+| Field | Value |
+|---|---|
+| `podium_project_url` | The Podium project |
+| `podium_scenario_url` | The Podium scenario of this design |
+| `apn`, `scenario`, `design` | Parcel, scenario version (`S-01 v1`) and Podium's name for the design |
+| `buildings`, `it_mw`, `height_m` | Podium's figures for the design |
+| `published` | When it was published |
+
+Publishing a design replaces the design published earlier for the same parcel, so designs don't overlap. Nothing leaves the browser until you press **Publish**.
+
+**Set up once.**
+
+1. In ArcGIS Online, create OAuth credentials (**Content**, **New item**, **Developer credentials**, **OAuth credentials**) with the redirect URLs `http://localhost:5190/oauth-callback.html` and `https://dchantlos.github.io/datacenter/oauth-callback.html`, and paste their client ID in the app when it asks. Or set `VITE_ARCGIS_APP_ID` in `apps/web/.env.development.local`.
+2. Create an empty 3D object layer: **Content**, **New item**, **Scene layer**, **3D object**. The app adds the fields above the first time it publishes, which needs you to own the layer.
+
+The layer shows new designs straight away. After many uploads, rebuild its cache in ArcGIS Online (the layer's **Settings**, **Rebuild cache**), which uses credits. `VITE_ARCGIS_PORTAL_URL` points the app at an ArcGIS Enterprise portal instead of ArcGIS Online.
+
 ## Run it locally
 
 Requires Node.js 20.19 or later (22.12 or later on the 22 line).

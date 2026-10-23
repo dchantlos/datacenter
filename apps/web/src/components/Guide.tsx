@@ -113,6 +113,7 @@ const PAGES: Page[] = [
       "The toolbar on the right changes the **Basemap**, shows the **3D buildings** around the site, and measures: **Distance**, **Area**, **Line of sight**, **Viewshed**, **Cut and fill** for a level pad, and **Sun and shadows** for any time of day.",
       "After changing a design in Podium, press **Bring designs back** in the brief.",
       "Without the bridge: in Podium, export the scenario (**Downloads**, **Scenario Model (GLB)**), then press **Review in 3D** here, **Import Podium design (GLB)** and choose the file.",
+      "**Publish to ArcGIS Online**, in the panel, signs you in to your ArcGIS organization and adds the design to a 3D object layer you own, as one 3D object linked back to its Podium project.",
       "Each building is placed where Podium put it. Podium designs on a flat site, so each one sits at the average ground level under it.",
     ],
     see: "Podium's figures for the chosen design: buildings, IT capacity, floor area, height, cost, construction time and water.",
