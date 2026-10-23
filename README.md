@@ -149,7 +149,7 @@ Publishing a design replaces the design published earlier for the same parcel, s
 1. In ArcGIS Online, create OAuth credentials (**Content**, **New item**, **Developer credentials**, **OAuth credentials**) with the redirect URLs `http://localhost:5190/oauth-callback.html` and `https://dchantlos.github.io/datacenter/oauth-callback.html`, and paste their client ID in the app when it asks. Or set `VITE_ARCGIS_APP_ID` in `apps/web/.env.development.local`.
 2. Create an empty 3D object layer: **Content**, **New item**, **Scene layer**, **3D object**. The app adds the fields above the first time it publishes, which needs you to own the layer.
 
-The layer shows new designs straight away. After many uploads, rebuild its cache in ArcGIS Online (the layer's **Settings**, **Rebuild cache**), which uses credits. `VITE_ARCGIS_PORTAL_URL` points the app at an ArcGIS Enterprise portal instead of ArcGIS Online.
+The layer shows new designs straight away. After many uploads, rebuild its cache in ArcGIS Online (the layer's **Settings**, **Rebuild cache**), which uses credits. `VITE_ARCGIS_PORTAL_URL` points the app at your organization's URL (for example `https://<org>.maps.arcgis.com`, which also offers its single sign-on) or an ArcGIS Enterprise portal, and `VITE_ARCGIS_LAYER_ID` picks the layer to publish to by default.
 
 ## Run it locally
 

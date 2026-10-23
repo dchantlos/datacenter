@@ -24,7 +24,7 @@ function signInProblem(error: unknown) {
 type State =
   | { kind: "idle" }
   | { kind: "working"; text: string }
-  | { kind: "done"; layer: ObjectLayer; design: string; replaced: number; kept: number; added: number }
+  | { kind: "done"; layer: ObjectLayer; design: string; replaced: number; kept: number; added: number; savedLink: string | null }
   | { kind: "error"; message: string };
 
 interface Props {
@@ -59,12 +59,12 @@ export default function PublishPanel(props: Props) {
 }
 
 function Publisher({ api, scenario, option, projectUrl, totals, makeMesh }: Props & { api: Api }) {
-  const { CALLBACK_URL, appIdFromEnv, itemPageUrl, newItemUrl, objectLayers, openLayer, publishDesign, restoreSignIn, saveAppId, signIn, signOut, storedAppId } = api;
+  const { CALLBACK_URL, appIdFromEnv, itemPageUrl, layerIdFromEnv, newItemUrl, objectLayers, openLayer, publishDesign, restoreSignIn, saveAppId, signIn, signOut, storedAppId } = api;
   const [appId, setAppId] = useState(storedAppId);
   const [draftId, setDraftId] = useState("");
   const [session, setSession] = useState<Session | null>(null);
   const [layers, setLayers] = useState<ObjectLayer[] | null>(null);
-  const [layerId, setLayerId] = useState(() => localStorage.getItem(LAYER_KEY));
+  const [layerId, setLayerId] = useState(() => localStorage.getItem(LAYER_KEY) ?? layerIdFromEnv());
   const [state, setState] = useState<State>({ kind: "idle" });
   const busy = state.kind === "working";
   const chosen = layers?.find((l) => l.id === layerId) ?? layers?.[0] ?? null;
@@ -84,7 +84,7 @@ function Publisher({ api, scenario, option, projectUrl, totals, makeMesh }: Prop
   const findLayers = async (s: Session) => {
     setLayers(null);
     try {
-      setLayers(await objectLayers(s));
+      setLayers(await objectLayers(s, [layerIdFromEnv(), localStorage.getItem(LAYER_KEY)]));
     } catch (error) {
       setLayers([]);
       setState({ kind: "error", message: `Couldn't list your 3D object layers: ${messageOf(error)}.` });
@@ -147,7 +147,7 @@ function Publisher({ api, scenario, option, projectUrl, totals, makeMesh }: Prop
           scenarioUrl: option.url,
           published: Date.now(),
         });
-        setState({ kind: "done", layer: chosen, design: option.name, replaced: result.replaced, kept: result.kept, added: added.length });
+        setState({ kind: "done", layer: chosen, design: option.name, replaced: result.replaced, kept: result.kept, added: added.length, savedLink: result.savedLink });
       } finally {
         layer.destroy();
       }
@@ -262,6 +262,16 @@ function Publisher({ api, scenario, option, projectUrl, totals, makeMesh }: Prop
           {state.added > 0 && `, after adding ${state.added} fields to the layer`}
           {state.replaced > 0 && `, replacing ${state.replaced === 1 ? "the earlier design" : `${state.replaced} earlier designs`}`}
           {state.kept > 0 && `. ${state.kept} earlier design${state.kept === 1 ? "" : "s"} couldn't be removed`}.
+          {state.savedLink && (
+            <>
+              {" "}
+              Its <code>podium_project_url</code> links to{" "}
+              <a className="link" href={state.savedLink} target="_blank" rel="noreferrer">
+                the Podium project
+              </a>
+              .
+            </>
+          )}
         </p>
       )}
     </>

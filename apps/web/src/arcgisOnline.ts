@@ -4,6 +4,7 @@ import esriId from "@arcgis/core/identity/IdentityManager.js";
 import OAuthInfo from "@arcgis/core/identity/OAuthInfo.js";
 import SceneLayer from "@arcgis/core/layers/SceneLayer.js";
 import Portal from "@arcgis/core/portal/Portal.js";
+import PortalItem from "@arcgis/core/portal/PortalItem.js";
 import esriRequest from "@arcgis/core/request.js";
 import { adminLayerUrl, designAttributes, missingFields, replaceWhere, type PublishedDesign } from "./publish";
 
@@ -14,8 +15,10 @@ export const CALLBACK_URL = new URL(`${import.meta.env.BASE_URL}oauth-callback.h
 const SHARING = `${PORTAL_URL}/sharing`;
 const APP_ID_KEY = "dcss.arcgis.appId";
 const ENV_APP_ID = (import.meta.env.VITE_ARCGIS_APP_ID as string | undefined)?.trim() || null;
+const ENV_LAYER_ID = (import.meta.env.VITE_ARCGIS_LAYER_ID as string | undefined)?.trim() || null;
 
 export const appIdFromEnv = () => ENV_APP_ID;
+export const layerIdFromEnv = () => ENV_LAYER_ID;
 export const storedAppId = () => ENV_APP_ID ?? localStorage.getItem(APP_ID_KEY);
 export function saveAppId(appId: string | null) {
   if (appId) localStorage.setItem(APP_ID_KEY, appId);
@@ -67,15 +70,23 @@ export async function signIn(appId: string): Promise<Session> {
 
 export const signOut = () => esriId.destroyCredentials();
 
-/** The signed-in user's 3D object layers, newest first. */
-export async function objectLayers(s: Session): Promise<ObjectLayer[]> {
+/** The signed-in user's 3D object layers, newest first, plus any of `also` that search doesn't list yet. */
+export async function objectLayers(s: Session, also: (string | null)[] = []): Promise<ObjectLayer[]> {
   const { results } = await s.portal.queryItems({
     query: `owner:"${s.username}" type:"Scene Service" typekeywords:"3DObject"`,
     sortField: "modified",
     sortOrder: "desc",
     num: 100,
   });
-  return results.flatMap((item) => (item.id ? [{ id: item.id, title: item.title || item.id }] : []));
+  const layers = results.flatMap((item) => (item.id ? [{ id: item.id, title: item.title || item.id }] : []));
+  // ArcGIS's search can take a while to list a layer made moments ago.
+  for (const id of new Set(also)) {
+    if (!id || layers.some((l) => l.id === id)) continue;
+    const item = new PortalItem({ id, portal: s.portal });
+    await item.load().catch(() => undefined);
+    if (item.loaded && item.type === "Scene Service" && item.typeKeywords.includes("3DObject")) layers.unshift({ id, title: item.title || id });
+  }
+  return layers;
 }
 
 export const itemPageUrl = (itemId: string) => `${PORTAL_URL}/home/item.html?id=${encodeURIComponent(itemId)}`;
@@ -90,15 +101,17 @@ const loadLayer = async (s: Session, itemId: string) => {
 /** The hosted feature layer that stores a 3D object layer's models and attributes. */
 async function featureServiceUrl(layer: SceneLayer) {
   const related = (await layer.portalItem?.fetchRelatedItems({ relationshipType: "Service2Service", direction: "reverse" })) ?? [];
-  const url = related.find((item) => item.type === "Feature Service")?.url;
-  if (!url) throw new Error("couldn't find the feature layer behind this 3D object layer");
+  // Without the item link, hosted layers keep the scene service's name, as the SDK also assumes.
+  const url = related.find((item) => item.type === "Feature Service")?.url ?? layer.url?.replace(/\/SceneServer(\/layers\/\d+)?\/?$/i, "/FeatureServer");
+  if (!url?.endsWith("/FeatureServer")) throw new Error("couldn't find the feature layer behind this 3D object layer");
   return url;
 }
 
 /** Opens the layer for publishing and adds the fields a published design needs, which only the layer's owner can do. */
 export async function openLayer(s: Session, itemId: string): Promise<{ layer: SceneLayer; added: string[] }> {
   const layer = await loadLayer(s, itemId);
-  const { supportsAdd, supportsDelete } = layer.capabilities.operations;
+  // Owners can still edit when editing is switched off for everyone else.
+  const { supportsAdd, supportsDelete } = layer.effectiveCapabilities.operations;
   if (!supportsAdd || !supportsDelete) {
     layer.destroy();
     throw new Error("this layer can't be edited. In ArcGIS Online, open its feature layer's Settings and turn on editing and keeping track of changes");
@@ -129,5 +142,13 @@ export async function publishDesign(layer: SceneLayer, mesh: Mesh, design: Publi
     const { deleteFeatureResults } = await layer.applyEdits({ deleteFeatures: earlier.map((objectId) => ({ objectId })) });
     replaced = deleteFeatureResults.filter((r) => !r.error).length;
   }
-  return { objectId: added.objectId ?? null, replaced, kept: earlier.length - replaced };
+  // Read back from the layer: the link the published 3D object now carries.
+  const savedLink =
+    added.objectId == null
+      ? null
+      : await layer
+          .queryFeatures({ objectIds: [added.objectId], outFields: ["podium_project_url"], returnGeometry: false })
+          .then(({ features }) => (features[0]?.attributes?.podium_project_url as string | undefined) ?? null)
+          .catch(() => null);
+  return { objectId: added.objectId ?? null, replaced, kept: earlier.length - replaced, savedLink };
 }
