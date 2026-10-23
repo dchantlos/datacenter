@@ -1,0 +1,1 @@
+import{n as e}from"./decorators-BTkzlYqr.js";import{r as t}from"./tslib.es6-qUHyP9zl.js";import{t as n}from"./FeatureLikeLayerView2D-4jFF5_j3.js";import{t as r}from"./GeoJSONLayerView-Cxxygm4_.js";var i=class extends n(r){};i=t([e(`esri.views.2d.layers.GeoJSONLayerView2D`)],i);var a=i;export{a as default};

@@ -1,0 +1,1 @@
+var e=class{constructor(e){this._store=e}destroy(){this._store.destroy()}get(e){return this._store.get(e)}put(e,t){this._store.put(e,t)}};export{e as t};

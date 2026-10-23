@@ -1,0 +1,1 @@
+import{n as e}from"./VertexArrayObject-C-aS2O6J.js";function t(t,n,r,i=``){return new e(t,i+n.vertexShader,i+n.fragmentShader,r)}export{t};

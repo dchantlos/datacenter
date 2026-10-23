@@ -1,0 +1,1 @@
+import{T as e}from"./Error-BplF0QKp.js";import"./uuid-CxFjXsEJ.js";import"./colorUtils-B1oFoT_4.js";import"./index-DvoNYEOO.js";import"./number-CDqqkwtT.js";function t(t){return e(t)}export{t};
