@@ -102,7 +102,7 @@ const PAGES: Page[] = [
       "**Download (JSON)** on an approved scenario saves the whole brief as a file.",
     ],
     see: "The brief lists each step as the bridge does it. The 3D review opens once everything is back, Podium's 3D models included.",
-    tip: "To install the bridge: open chrome://extensions, switch on **Developer mode**, press **Load unpacked** and choose the podium-bridge folder of this project. Sign in to Podium in the same browser first.",
+    tip: "To install the bridge, download podium-bridge.zip from the project's GitHub page (github.com/dchantlos/datacenter) and unzip it. Open chrome://extensions, switch on **Developer mode**, press **Load unpacked** and choose the podium-bridge folder. Sign in to Podium in the same browser first.",
     showMe: "scenarios",
   },
   {

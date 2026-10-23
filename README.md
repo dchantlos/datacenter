@@ -2,6 +2,8 @@
 
 **Live app: https://dchantlos.github.io/datacenter/**
 
+**ArcGIS Podium Bridge (Chrome or Edge extension): [download podium-bridge.zip](https://github.com/dchantlos/datacenter/raw/main/downloads/podium-bridge.zip)**, needed to send a site to Podium and bring its designs back with one button. See [The Podium bridge](#the-podium-bridge) for why and how to install it.
+
 A web app for finding and preparing data center sites around Reno, Nevada (Washoe and Storey counties). It checks every parcel of 40 acres or more against live public data, ranks the ones that pass, explains every score, and turns a chosen site into a design brief that Podium can design from.
 
 Built with the [ArcGIS Maps SDK for JavaScript](https://developers.arcgis.com/javascript/latest/) as a technical demonstration.
@@ -30,8 +32,9 @@ It is the first half of a larger workflow: ArcGIS finds and explains the best la
    - Weighted preferences (default weight): distance to transmission lines of 115 kV or more (30), flat share (25), distance to a primary road (20), adjacent parcels of 40 acres or more (15), groundwater basin designation (10).
 5. **Run the analysis.** Every candidate parcel in the area is checked, slope is measured with USGS 3DEP, and the parcels that pass are ranked. Changing rules or weights afterwards re-ranks the results without a new run.
 6. **Shortlist and brief.** Shortlist sites and create a scenario: a design brief with the site boundary, the buildable area after a setback, no-build areas, ground elevation and the data sources used. Review it, approve it and download it as JSON.
-7. **Design in Podium.** With the ArcGIS Podium Bridge browser extension, one button creates the Podium project, gives it the buildable area (the parcel less its setback and no-build areas) as the site, runs Podium's data center generator with the brief's numbers, saves the options as scenarios and brings them back. Without it, copy the same outline into Podium by hand.
+7. **Design in Podium.** With the [ArcGIS Podium Bridge](#the-podium-bridge) browser extension, one button creates the Podium project, gives it the buildable area (the parcel less its setback and no-build areas) as the site, runs Podium's data center generator with the brief's numbers, saves the options as scenarios and brings them back. Without it, copy the same outline into Podium by hand.
 8. **Review Podium's designs in 3D.** Each design is placed where Podium put it, on the real parcel and terrain, as Podium's own 3D model or as outlines, with Podium's figures. Cards along the bottom switch between designs from the same viewpoint. The view shows the existing 3D buildings around the site and offers a choice of basemaps, and its tools measure distance and area, check line of sight and viewsheds, work out cut and fill for a level pad, and show sun and shadows for any time of day. A GLB exported from Podium can also be imported by hand.
+9. **Publish to ArcGIS Online.** Sign in to your ArcGIS organization and add the chosen design to a 3D object layer, as one 3D object whose attributes link back to its Podium project and scenario. See [Publish designs to ArcGIS Online](#publish-designs-to-arcgis-online).
 
 An in-app guide walks through each step.
 
@@ -43,6 +46,7 @@ An in-app guide walks through each step.
 | Shortlist, scenarios and design brief (JSON download) | Built |
 | Send the approved brief to Podium | Built with the ArcGIS Podium Bridge extension (Chrome and Edge). Without it, by hand: copy the boundary into Podium's Coordinate Entry and type the brief's numbers into its data center generator |
 | Review returned designs in 3D | Built: designs come back through the bridge, or import the 3D model (GLB) exported from Podium; each building is placed on the parcel and set on the terrain, among the existing 3D buildings, with measurement, sight, cut and fill, and sun tools |
+| Publish designs to ArcGIS Online | Built: a design becomes a 3D object in your organization's 3D object layer, linked back to its Podium project |
 
 ## Data sources
 
@@ -98,9 +102,16 @@ The `design/` folder holds the original design concept.
 
 ## The Podium bridge
 
-Podium has no public API for this, and its server doesn't accept calls from other websites. The bridge is a small Chrome and Edge extension (`podium-bridge/`) that does the Podium steps in a Podium window, signed in as you, the way you would by hand.
+**Why it's needed.** Podium has no public API for creating projects or running its data center generator, and its server only answers requests from Podium's own pages, so a web app like this one can't talk to Podium directly. The ArcGIS Podium Bridge is a small Chrome and Edge extension (`podium-bridge/`) that does the Podium steps in a Podium window, signed in as you, the way you would by hand, and hands the designs and Podium's 3D models back to the app. Without it, the hand-off is copy and paste. It can only open Podium (`podium.app-dev.podium.io`), and only this app (the live site and `localhost:5190`) can send it jobs.
 
-**Install.** Sign in to Podium in Chrome or Edge. Open `chrome://extensions` (or `edge://extensions`), switch on **Developer mode**, press **Load unpacked** and choose the `podium-bridge` folder. The app shows **Podium: bridge connected** in the scenario tray.
+**Download and install.**
+
+1. Download [podium-bridge.zip](https://github.com/dchantlos/datacenter/raw/main/downloads/podium-bridge.zip) and unzip it. You get a `podium-bridge` folder; keep it somewhere it will stay, because the browser loads the extension from it.
+2. In Chrome open `chrome://extensions` (in Edge, `edge://extensions`) and switch on **Developer mode**.
+3. Press **Load unpacked** and choose the unzipped `podium-bridge` folder. **ArcGIS Podium Bridge** appears in the list.
+4. Sign in to Podium in the same browser, then reload the app. The scenario tray shows **Podium: bridge connected**.
+
+To update, download the zip again, replace the folder's contents, and press the reload button on the extension's card in `chrome://extensions`. Working from a clone of this repository, you can load its `podium-bridge` folder directly; `npm run pack:bridge` rebuilds the zip.
 
 **Use.** Open a scenario's brief, press **Review brief →**, then **Design in Podium**. The bridge:
 

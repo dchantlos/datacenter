@@ -10,7 +10,8 @@
     "preview": "npm --workspace apps/web run preview",
     "typecheck": "npm --workspace apps/web run typecheck",
     "test": "npm --workspace apps/web run test",
-    "deploy": "npm run build && gh-pages -d apps/web/dist --nojekyll"
+    "deploy": "npm run build && gh-pages -d apps/web/dist --nojekyll",
+    "pack:bridge": "mkdir -p downloads && rm -f downloads/podium-bridge.zip && zip -r -X downloads/podium-bridge.zip podium-bridge -x '*.DS_Store'"
   },
   "devDependencies": {
     "gh-pages": "^6.3.0"

@@ -366,7 +366,10 @@ function PodiumHandoff({ scenario, bridge, podiumRun: run, podiumDesign: design,
       <>
         <CopyForPodium scenario={scenario} onReview3D={onReview3D} />
         <p className="note note--left">
-          With the ArcGIS Podium Bridge extension installed, one button does this in Podium for you and brings the designs back. See the guide's Podium step.
+          With the ArcGIS Podium Bridge extension installed, one button does this in Podium for you and brings the designs back.{" "}
+          <a className="link" href="https://github.com/dchantlos/datacenter#the-podium-bridge" target="_blank" rel="noreferrer">
+            Get the extension
+          </a>
         </p>
       </>
     );
