@@ -30,7 +30,7 @@ It is the first half of a larger workflow: ArcGIS finds and explains the best la
    - Weighted preferences (default weight): distance to transmission lines of 115 kV or more (30), flat share (25), distance to a primary road (20), adjacent parcels of 40 acres or more (15), groundwater basin designation (10).
 5. **Run the analysis.** Every candidate parcel in the area is checked, slope is measured with USGS 3DEP, and the parcels that pass are ranked. Changing rules or weights afterwards re-ranks the results without a new run.
 6. **Shortlist and brief.** Shortlist sites and create a scenario: a design brief with the site boundary, the buildable area after a setback, no-build areas, ground elevation and the data sources used. Review it, approve it and download it as JSON.
-7. **Design in Podium.** With the ArcGIS Podium Bridge browser extension, one button creates the Podium project, sets the site boundary, runs Podium's data center generator with the brief's numbers, saves the options as scenarios and brings them back. Without it, copy the site boundary into Podium by hand.
+7. **Design in Podium.** With the ArcGIS Podium Bridge browser extension, one button creates the Podium project, gives it the buildable area (the parcel less its setback and no-build areas) as the site, runs Podium's data center generator with the brief's numbers, saves the options as scenarios and brings them back. Without it, copy the same outline into Podium by hand.
 8. **Review Podium's designs in 3D.** Each design is placed where Podium put it, on the real parcel and terrain, as Podium's own 3D model or as outlines, with Podium's figures. Cards along the bottom switch between designs from the same viewpoint. The view shows the existing 3D buildings around the site and offers a choice of basemaps, and its tools measure distance and area, check line of sight and viewsheds, work out cut and fill for a level pad, and show sun and shadows for any time of day. A GLB exported from Podium can also be imported by hand.
 
 An in-app guide walks through each step.
@@ -105,7 +105,7 @@ Podium has no public API for this, and its server doesn't accept calls from othe
 **Use.** Open a scenario's brief, press **Review brief →**, then **Design in Podium**. The bridge:
 
 1. creates a Podium project named after the scenario version (United States, metric, Podium's data centre area policy and engineering configuration),
-2. sets the site boundary,
+2. sets the site boundary to the buildable area, so the design keeps to the setback and out of no-build areas (the largest part, without holes, if the area is split),
 3. turns on PODII and fills in its data centre generator with the brief's IT capacity, max height and number of options,
 4. starts the design, generates the options and saves them as Podium scenarios,
 5. sends each design back (Podium's model and figures) and exports Podium's 3D model (GLB) of each one.

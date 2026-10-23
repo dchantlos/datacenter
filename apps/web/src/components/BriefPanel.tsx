@@ -459,7 +459,8 @@ function CopyForPodium({ scenario, onReview3D }: { scenario: Scenario; onReview3
       await navigator.clipboard.writeText(boundary.text);
       const parts = boundary.parts > 1 ? `, the largest of ${boundary.parts} parts` : "";
       const holes = boundary.holes ? `, without its ${boundary.holes} hole${boundary.holes === 1 ? "" : "s"}` : "";
-      setMessage(`Copied ${boundary.points} points${parts}${holes}. In Podium: Site, Coordinate Entry, paste, Parse & insert, Save changes.`);
+      const what = boundary.source === "buildable" ? "the buildable area (the parcel less its setback and no-build areas)" : "the parcel";
+      setMessage(`Copied ${boundary.points} points of ${what}${parts}${holes}. In Podium: Site, Coordinate Entry, paste, Parse & insert, Save changes.`);
     } catch (error) {
       setMessage(`Couldn't copy: ${error instanceof Error ? error.message : String(error)}`);
     }

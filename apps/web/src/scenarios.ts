@@ -295,13 +295,18 @@ function assumptions(s: Scenario): string[] {
 
 const toWgs84 = (json: GeometryJson) => toGeoJson((projectOperator.execute(Polygon.fromJSON(json), SpatialReference.WGS84) as Polygon).rings);
 
-/** The site boundary as text for Podium's Coordinate Entry (Site, Coordinate Entry, paste, Parse & insert). */
-export async function podiumBoundary(s: Scenario) {
+/**
+ * The outline Podium designs within, as text for its Coordinate Entry (Site, Coordinate Entry, paste, Parse & insert).
+ * By default the buildable area, so Podium keeps out of the setback and no-build areas; the parcel when there is none.
+ */
+export async function podiumBoundary(s: Scenario, from: "buildable" | "parcel" = "buildable") {
   await ready();
-  const geo = toWgs84(s.site.geometry);
+  const buildable = from === "buildable" ? (s.buildable?.geometry ?? null) : null;
+  const geo = toWgs84(buildable ?? s.site.geometry);
   if (!geo) throw new Error("the parcel has no boundary");
   const { ring, parts, holes } = podiumRing(geo);
-  return { text: JSON.stringify(ring), ring, points: ring.length, parts, holes };
+  const areaM2 = Math.abs(geodeticAreaOperator.execute(new Polygon({ rings: [ring], spatialReference: SpatialReference.WGS84 }), { unit: "square-meters" }));
+  return { text: JSON.stringify(ring), ring, points: ring.length, parts, holes, areaM2, source: buildable ? ("buildable" as const) : ("parcel" as const) };
 }
 
 /** The request in our draft format. Only what is listed here would leave the app. */

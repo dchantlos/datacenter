@@ -187,17 +187,58 @@ export function designTotals(d: Design) {
   };
 }
 
+/** Area centroid of a ring, open or closed. */
+function centroid(ring: Position[]): Position | null {
+  let a = 0;
+  let cx = 0;
+  let cy = 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const cross = ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1];
+    a += cross;
+    cx += (ring[j][0] + ring[i][0]) * cross;
+    cy += (ring[j][1] + ring[i][1]) * cross;
+  }
+  return a ? [cx / (3 * a), cy / (3 * a)] : null;
+}
+
+/** Shortest distance from a point to a ring's edges. */
+function toEdges([x, y]: Position, ring: Position[]) {
+  let best = Infinity;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [ax, ay] = ring[j];
+    const dx = ring[i][0] - ax;
+    const dy = ring[i][1] - ay;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+    best = Math.min(best, Math.hypot(x - ax - t * dx, y - ay - t * dy));
+  }
+  return best;
+}
+
 /**
- * How far Podium's boundary sits from where the app expects it (both in the project frame), as a mean shift.
- * Null when the two can't be compared point for point.
+ * How far Podium's boundary sits from where the app expects it (both in the project frame): the shift between their
+ * centroids, and how far apart the outlines still are after it (RMS of each vertex's distance to the other outline).
+ * Works whatever the vertex counts. Null when either isn't a polygon.
  */
 export function frameShift(expected: Position[], podium: Position[] | null): { dx: number; dy: number; rms: number } | null {
-  if (!podium) return null;
-  const theirs = podium.length === expected.length + 1 ? podium.slice(0, -1) : podium;
-  if (theirs.length !== expected.length || !expected.length) return null;
-  const n = expected.length;
-  const dx = expected.reduce((s, p, i) => s + p[0] - theirs[i][0], 0) / n;
-  const dy = expected.reduce((s, p, i) => s + p[1] - theirs[i][1], 0) / n;
-  const rms = Math.sqrt(expected.reduce((s, p, i) => s + (p[0] - theirs[i][0] - dx) ** 2 + (p[1] - theirs[i][1] - dy) ** 2, 0) / n);
-  return { dx, dy, rms };
+  const ours = expected.length >= 3 ? centroid(expected) : null;
+  const theirs = podium && podium.length >= 3 ? centroid(podium) : null;
+  if (!podium || !ours || !theirs) return null;
+  const dx = ours[0] - theirs[0];
+  const dy = ours[1] - theirs[1];
+  const shifted = podium.map(([x, y]): Position => [x + dx, y + dy]);
+  const gaps = [...expected.map((p) => toEdges(p, shifted)), ...shifted.map((p) => toEdges(p, expected))];
+  return { dx, dy, rms: Math.sqrt(gaps.reduce((s, g) => s + g * g, 0) / gaps.length) };
+}
+
+/**
+ * Which of the outlines Podium might have been given its model was designed for: the one its stored boundary fits
+ * best, each in its own frame. Null when none of them can be compared.
+ */
+export function matchOutline<T extends { ring: Position[] }>(candidates: T[], toXY: (ring: Position[]) => Position[], podium: Position[] | null) {
+  let best: { outline: T; shift: NonNullable<ReturnType<typeof frameShift>> } | null = null;
+  for (const outline of candidates) {
+    const shift = frameShift(toXY(outline.ring), podium);
+    if (shift && (!best || shift.rms < best.shift.rms)) best = { outline, shift };
+  }
+  return best;
 }

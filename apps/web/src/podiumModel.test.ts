@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { designFromModel, designTotals, frameShift, type PodiumModel } from "./podiumModel.ts";
+import { designFromModel, designTotals, frameShift, matchOutline, type PodiumModel } from "./podiumModel.ts";
 
 const placement = (x: number, y: number, angleDeg = 0) => {
   const a = (angleDeg * Math.PI) / 180;
@@ -126,4 +126,27 @@ test("measures how far Podium's boundary is from the expected one", () => {
   const shift = frameShift(expected, design.siteBoundary)!;
   assert.ok(near([shift.dx, shift.dy, shift.rms], [1, 1, 0]));
   assert.equal(frameShift(expected.slice(0, 1), design.siteBoundary), null);
+  // The same outline with more points, elsewhere in the frame.
+  const resampled = frameShift(
+    [
+      [105, -53],
+      [255, -53],
+      [405, -53],
+      [405, 247],
+    ],
+    design.siteBoundary,
+  )!;
+  assert.ok(near([resampled.dx, resampled.dy, resampled.rms], [5, -3, 0]));
+});
+
+test("picks the outline Podium's boundary fits best", () => {
+  const design = designFromModel(model);
+  const buildable = { label: "buildable", ring: [[101, -49], [401, -49], [401, 251]] as [number, number][] };
+  const parcel = { label: "parcel", ring: [[60, -90], [440, -90], [440, 290]] as [number, number][] };
+  const other = { label: "other", ring: [[0, 0]] as [number, number][] };
+  const match = matchOutline([parcel, buildable, other], (ring) => ring, design.siteBoundary);
+  assert.equal(match?.outline.label, "buildable");
+  assert.ok(near([match.shift.dx, match.shift.dy, match.shift.rms], [1, 1, 0]));
+  assert.equal(matchOutline([other], (ring) => ring, design.siteBoundary), null);
+  assert.equal(matchOutline([parcel], (ring) => ring, null), null);
 });

@@ -115,10 +115,8 @@ export function runBridge(job: BridgeJob, onEvent: (event: BridgeEvent) => void)
   return { cancel: () => !finished && port.postMessage({ type: "cancel", jobId: job.jobId }) };
 }
 
-const SQUARE_METRES_PER_ACRE = 4046.8564224;
-
 export async function podiumJob(s: Scenario, mode: BridgeJob["mode"], projectId: string | undefined, styleProjectIds: string[], fill = false): Promise<BridgeJob> {
-  const { ring } = await podiumBoundary(s);
+  const { ring, areaM2 } = await podiumBoundary(s);
   const b = s.brief;
   if (b.maxHeightM === null || b.optionsRequested === null) throw new Error("the brief needs a max height and a number of design options");
   return {
@@ -128,7 +126,7 @@ export async function podiumJob(s: Scenario, mode: BridgeJob["mode"], projectId:
     description: `From Data Center Site Selection: ${s.site.county} parcel ${s.site.apn}, ${s.site.zoning} zoning, run ${s.analysis.runId}${s.analysis.rank !== null ? `, ranked #${s.analysis.rank}` : ""}.`,
     address: `APN ${s.site.apn}, ${s.site.county}, Nevada`,
     ring: ring.map(([lon, lat]) => [lon, lat]),
-    areaM2: s.site.acres * SQUARE_METRES_PER_ACRE,
+    areaM2,
     brief: {
       itCapacityMW: b.itCapacityMW,
       availablePowerMW: b.availablePowerMW,

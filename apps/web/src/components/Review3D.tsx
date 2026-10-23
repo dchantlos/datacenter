@@ -20,7 +20,7 @@ import SolidEdges3D from "@arcgis/core/symbols/edges/SolidEdges3D.js";
 import SceneView from "@arcgis/core/views/SceneView.js";
 import { contains, type Position } from "../geojson";
 import { parseGlb, podiumFrame, splitBuildings, type Building, type PodiumFrame } from "../podiumGlb";
-import { designFromModel, designTotals, frameShift, type DesignBuilding, type SectionKind } from "../podiumModel";
+import { designFromModel, designTotals, matchOutline, type DesignBuilding, type SectionKind } from "../podiumModel";
 import { podiumBoundary, type Scenario } from "../scenarios";
 import { makeBasemap, money, number, storedBasemap } from "../scene3d";
 import type { PodiumDesignRecord, PodiumOption } from "../store";
@@ -38,7 +38,7 @@ const SECTION_COLORS: Record<SectionKind, number[]> = {
   plant: [165, 205, 222],
   other: [203, 213, 225],
 };
-/** Podium's boundary may sit this far from the parcel and still count as the same site. */
+/** Podium's boundary may sit this far (RMS) from the outline it was given and still count as the same site. */
 const SAME_SITE_RMS_M = 2;
 
 /** Imported designs by scenario id, kept while the app is open. */
@@ -48,7 +48,7 @@ type Source = { kind: "file"; name: string; data: ArrayBuffer } | { kind: "optio
 type Status =
   | { kind: "empty" }
   | { kind: "working"; text: string }
-  | { kind: "placed"; drawn: "model" | "outlines"; label: string; count: number; ground: [number, number]; outside: number; moved: boolean }
+  | { kind: "placed"; drawn: "model" | "outlines"; label: string; count: number; ground: [number, number]; outside: number; moved: boolean; wholeParcel: boolean }
   | { kind: "error"; message: string };
 
 interface Footprint {
@@ -205,9 +205,14 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
     const label = source.kind === "file" ? source.name : (option?.name ?? "");
     void (async () => {
       setStatus({ kind: "working", text: glb ? `Reading ${label}…` : `Drawing ${label}…` });
-      const { ring } = await podiumBoundary(scenario);
-      const frame = podiumFrame(ring);
-      const siteXY = ring.map(frame.toXY);
+      // Podium designs in a frame centred on the outline it was given: the buildable area now, the whole parcel before.
+      const [buildable, whole] = await Promise.all([podiumBoundary(scenario), podiumBoundary(scenario, "parcel")]);
+      const toXY = (ring: Position[]) => ring.map(podiumFrame(ring).toXY);
+      const match = matchOutline([buildable, whole], toXY, parsed?.siteBoundary ?? null);
+      const given = match?.outline ?? buildable;
+      const shift = match?.shift ?? null;
+      const frame = podiumFrame(given.ring);
+      const parcelXY = whole.ring.map(frame.toXY);
       let footprints: Footprint[];
       let graphics: (ground: number[]) => Graphic[];
       let moved = false;
@@ -218,7 +223,6 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
         graphics = (ground) => buildings.map((b, i) => new Graphic({ geometry: toMesh(b, frame.toLonLat(b.center), ground[i]), symbol: DESIGN_SYMBOL }));
       } else {
         if (!parsed?.buildings.length) throw new Error("this design has no buildings");
-        const shift = frameShift(siteXY, parsed.siteBoundary);
         moved = shift !== null && shift.rms > SAME_SITE_RMS_M;
         const [dx, dy] = shift && !moved ? [shift.dx, shift.dy] : [0, 0];
         const buildings = parsed.buildings.map((b) => ({
@@ -254,8 +258,9 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
         label,
         count: footprints.length,
         ground: [Math.min(...ground), Math.max(...ground)],
-        outside: footprints.filter((b) => !contains(siteXY, b.center)).length,
+        outside: footprints.filter((b) => !contains(parcelXY, b.center)).length,
         moved,
+        wholeParcel: given.source === "parcel" && buildable.source === "buildable",
       });
       if (!framedRef.current) {
         framedRef.current = true;
@@ -424,6 +429,11 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
               Each building is where Podium put it. Podium designs on a flat site, so each one sits at the average ground level under it.
             </p>
             {status.moved && <p className="caveat">Podium's site boundary no longer matches this parcel, so the design may be offset. Was the boundary edited in Podium?</p>}
+            {status.wholeParcel && (
+              <p className="caveat">
+                Podium was given the whole parcel for this design, so it doesn't keep to the setback and no-build areas (green dashes). New designs do: press <b>Design again in Podium</b> in the brief.
+              </p>
+            )}
             {status.outside > 0 && (
               <p className="caveat">
                 {status.outside} of {status.count} buildings are outside this parcel. The design may have been made for a different boundary.
