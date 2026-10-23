@@ -110,7 +110,7 @@ Podium has no public API for this, and its server doesn't accept calls from othe
 4. starts the design, generates the options and saves them as Podium scenarios,
 5. sends each design back (Podium's model and figures) and exports Podium's 3D model (GLB) of each one.
 
-The brief lists each step as it happens, and the 3D review opens when the first design arrives. In tests, two options took two to three minutes, most of it Podium's generator.
+The brief lists each step as it happens, and the 3D review opens once everything is back, Podium's 3D models included. In tests, two options took two to three minutes, most of it Podium's generator.
 
 **Fill the site (demo)**, next to the button, is on at first. It asks Podium for a campus that fills the parcel (6 to 10 buildings, about 8 MW of IT per hectare, up to 200 MW) instead of the brief's IT target, which on its own can give a single building. Podium's figures in the 3D review are then for that campus, not for the brief's target. Switch it off to design to the brief's numbers. **Bring designs back** reads the project again after changes made in Podium. If a run stops part-way, **Design in Podium** carries on in the same project instead of making a second one.
 
@@ -126,7 +126,7 @@ The brief lists each step as it happens, and the 3D review opens when the first 
 - It uses Podium's own internal web requests and page, which aren't a published API. A Podium update can break it; the brief then shows which step failed, and the copy-and-paste way still works.
 - It works in the Podium development environment (`podium.app-dev.podium.io`) that the app links to.
 - It creates real projects and scenarios under your Podium account. Exporting the 3D model also saves a copy in the Podium project's files.
-- Keep the Podium window visible while it works. Podium pauses in a hidden tab or minimised window, and the brief asks you to bring it back.
+- Keep the Podium window visible until the 3D review opens. Podium pauses in a hidden tab, a minimised window or one covered by another window, and the brief asks you to bring it back.
 - Podium's 3D model of a design larger than 40 MB isn't sent back; export it in Podium and import it in **Review in 3D**.
 - Chrome and Edge only.
 

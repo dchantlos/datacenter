@@ -6,6 +6,21 @@ let bridgeWindowId = null;
 
 const messageOf = (error) => (error instanceof Error ? error.message : String(error));
 
+// A throttled Podium page can go quiet for over 30 s, when Chrome would stop this worker and lose the job.
+let keepAlive = null;
+function holdWhileBusy() {
+  if (jobs.size && !keepAlive) keepAlive = setInterval(() => void chrome.runtime.getPlatformInfo(), 20_000);
+  else if (!jobs.size && keepAlive) {
+    clearInterval(keepAlive);
+    keepAlive = null;
+  }
+}
+
+function finish(job) {
+  jobs.delete(job.jobId);
+  holdWhileBusy();
+}
+
 function send(job, message) {
   try {
     job.port?.postMessage(message);
@@ -64,7 +79,7 @@ async function inject(job) {
   if (job.started && job.committed) {
     // A full reload ended the driver after it had changed Podium; starting over would create a second project.
     send(job, { type: "error", jobId: job.jobId, message: "Podium reloaded while the bridge was working. What was made so far is in Podium; use Bring designs back once it's ready." });
-    jobs.delete(job.jobId);
+    finish(job);
     return;
   }
   await chrome.scripting.executeScript({ target, world: "MAIN", files: ["driver.js"] });
@@ -78,9 +93,15 @@ async function run(port, request) {
   const tab = await podiumTab();
   const job = { jobId: request.jobId, job: request, port, tabId: tab.id, app: port.sender?.tab ?? null, started: false, committed: false };
   jobs.set(job.jobId, job);
-  send(job, { type: "step", jobId: job.jobId, id: "podium", status: "working", detail: "Opening Podium" });
-  const current = await chrome.tabs.get(tab.id);
-  if (current.status === "complete") await inject(job);
+  holdWhileBusy();
+  try {
+    send(job, { type: "step", jobId: job.jobId, id: "podium", status: "working", detail: "Opening Podium" });
+    const current = await chrome.tabs.get(tab.id);
+    if (current.status === "complete") await inject(job);
+  } catch (error) {
+    finish(job);
+    throw error;
+  }
 }
 
 async function backToApp(job) {
@@ -110,14 +131,20 @@ chrome.runtime.onMessage.addListener((message, sender) => {
   if (message.type === "committed") job.committed = true;
   send(job, message);
   if (message.type === "done" || message.type === "error") {
-    jobs.delete(job.jobId);
+    finish(job);
     if (message.type === "done") void backToApp(job);
   }
 });
 
 chrome.tabs.onUpdated.addListener((tabId, info) => {
   if (info.status !== "complete") return;
-  for (const job of jobs.values()) if (job.tabId === tabId) inject(job).catch((error) => send(job, { type: "error", jobId: job.jobId, message: messageOf(error) }));
+  for (const job of jobs.values()) {
+    if (job.tabId !== tabId) continue;
+    inject(job).catch((error) => {
+      send(job, { type: "error", jobId: job.jobId, message: messageOf(error) });
+      finish(job);
+    });
+  }
 });
 
 chrome.windows.onRemoved.addListener((windowId) => {
@@ -125,7 +152,7 @@ chrome.windows.onRemoved.addListener((windowId) => {
   for (const job of [...jobs.values()]) {
     chrome.tabs.get(job.tabId).catch(() => {
       send(job, { type: "error", jobId: job.jobId, message: "The Podium window was closed before the job finished." });
-      jobs.delete(job.jobId);
+      finish(job);
     });
   }
 });

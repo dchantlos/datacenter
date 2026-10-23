@@ -408,7 +408,7 @@ function PodiumHandoff({ scenario, bridge, podiumRun: run, podiumDesign: design,
             Bring designs back
           </button>
         )}
-        {designs > 0 && (
+        {designs > 0 && !running && (
           <button type="button" className="btn btn--ghost" onClick={onReview3D}>
             <calcite-icon icon="cube" scale="s" />
             Review in 3D

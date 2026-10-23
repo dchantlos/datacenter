@@ -101,7 +101,7 @@ const PAGES: Page[] = [
       "Without the extension, press **Copy boundary for Podium**. In Podium, open the project's Site, choose **Coordinate Entry**, paste, press **Parse & insert**, then **Save changes**, and enter the brief's numbers in Podium's data center generator.",
       "**Download (JSON)** on an approved scenario saves the whole brief as a file.",
     ],
-    see: "The brief lists each step as the bridge does it. The 3D review opens when the first design arrives.",
+    see: "The brief lists each step as the bridge does it. The 3D review opens once everything is back, Podium's 3D models included.",
     tip: "To install the bridge: open chrome://extensions, switch on **Developer mode**, press **Load unpacked** and choose the podium-bridge folder of this project. Sign in to Podium in the same browser first.",
     showMe: "scenarios",
   },

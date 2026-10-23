@@ -29,6 +29,17 @@
   class Stopped extends Error {}
   let job = null;
   let lastBeat = 0;
+  // Chrome throttles a hidden page, so waits only count the time Podium is showing.
+  let hiddenMs = 0;
+  let hiddenAt = document.visibilityState === "hidden" ? Date.now() : 0;
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") hiddenAt ||= Date.now();
+    else if (hiddenAt) {
+      hiddenMs += Date.now() - hiddenAt;
+      hiddenAt = 0;
+    }
+  });
+  const hiddenTime = () => hiddenMs + (hiddenAt ? Date.now() - hiddenAt : 0);
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const messageOf = (error) => (error instanceof Error ? error.message : String(error));
@@ -148,28 +159,23 @@
   };
 
   async function waitFor(check, timeoutMs, what) {
-    let end = Date.now() + timeoutMs;
-    let hiddenSince = 0;
+    const start = Date.now();
+    const hiddenBefore = hiddenTime();
     for (;;) {
       checkStop();
-      // Podium's screens only move on while its window is visible; hidden time doesn't count against the timeout.
+      // Podium's screens only move on while its window is visible.
       if (document.visibilityState === "hidden") {
-        hiddenSince ||= Date.now();
-        if (Date.now() - hiddenSince > 4000 && !job.askedVisible) {
+        if (hiddenAt && Date.now() - hiddenAt > 4000 && !job.askedVisible) {
           job.askedVisible = true;
           post("step", { id: "visible", status: "needs-user", detail: "Keep the Podium window in view: Podium only works while its window is showing." });
         }
-        end += 500;
-      } else if (hiddenSince) {
-        hiddenSince = 0;
-        if (job.askedVisible) {
-          job.askedVisible = false;
-          post("step", { id: "visible", status: "done", detail: "Podium window in view" });
-        }
+      } else if (job.askedVisible) {
+        job.askedVisible = false;
+        post("step", { id: "visible", status: "done", detail: "Podium window in view" });
       }
       const value = await check();
       if (value) return value;
-      if (Date.now() > end) throw new Error(`Timed out waiting for ${what}.`);
+      if (Date.now() - start - (hiddenTime() - hiddenBefore) > timeoutMs) throw new Error(`Timed out waiting for ${what}.`);
       if (Date.now() - lastBeat > 10_000) {
         lastBeat = Date.now();
         post("heartbeat");

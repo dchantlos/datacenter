@@ -821,7 +821,6 @@ export default function App() {
       const option: PodiumOption = { ...event.scenario, model: event.model, glb: base.options.find((o) => o.id === event.scenario.id)?.glb ?? null };
       const at = kept.findIndex((o) => o.id === option.id);
       saveDesign({ ...base, options: at < 0 ? [...kept, option] : kept.map((o, i) => (i === at ? option : o)), updatedAt: now });
-      if (received.size === 1) setReviewUid(uid);
     } else if (event.type === "glb" && current) {
       const glb = fromBase64(event.base64);
       saveDesign({ ...current, options: current.options.map((o) => (o.id === event.scenarioId ? { ...o, glb } : o)), updatedAt: now });
@@ -832,6 +831,8 @@ export default function App() {
       podiumJobs.current.delete(uid);
       receivedRef.current.delete(jobId);
     }
+    // Opening it earlier would cover the Podium window, which then stalls while it exports the 3D models.
+    if (event.type === "done" && designsRef.current.get(uid)?.options.length) setReviewUid(uid);
   };
 
   /** "design" approves the version if needed and runs Podium for it; "fetch" reads its Podium project again. */
