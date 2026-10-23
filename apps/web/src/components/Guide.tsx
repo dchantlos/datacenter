@@ -109,12 +109,14 @@ const PAGES: Page[] = [
     title: "Review the designs in 3D",
     why: "Podium's design is placed on the real parcel and terrain, so it can be checked where it will be built.",
     actions: [
-      "With the bridge, the designs come back by themselves. Pick one at the top of **Review in 3D**, and switch between **Podium's 3D model** and **Outlines**.",
+      "With the bridge, the designs come back by themselves. Pick one from the cards at the bottom of **Review in 3D** (or press 1, 2, 3), and switch between **Podium's 3D model** and **Outlines**.",
+      "The toolbar on the right changes the **Basemap**, shows the **3D buildings** around the site, and measures: **Distance**, **Area**, **Line of sight**, **Viewshed**, **Cut and fill** for a level pad, and **Sun and shadows** for any time of day.",
       "After changing a design in Podium, press **Bring designs back** in the brief.",
       "Without the bridge: in Podium, export the scenario (**Downloads**, **Scenario Model (GLB)**), then press **Review in 3D** here, **Import Podium design (GLB)** and choose the file.",
       "Each building is placed where Podium put it. Podium designs on a flat site, so each one sits at the average ground level under it.",
     ],
     see: "Podium's figures for the chosen design: buildings, IT capacity, floor area, height, cost, construction time and water.",
+    tip: "The camera stays put when you switch designs, so they can be compared from the same view. Esc stops the tool you're using, then closes the 3D review.",
     showMe: "scenarios",
   },
 ];

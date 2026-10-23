@@ -1,6 +1,5 @@
 import "@esri/calcite-components/components/calcite-icon";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
-import Basemap from "@arcgis/core/Basemap.js";
 import Graphic from "@arcgis/core/Graphic.js";
 import EsriMap from "@arcgis/core/Map.js";
 import Mesh from "@arcgis/core/geometry/Mesh.js";
@@ -12,7 +11,6 @@ import MeshComponent from "@arcgis/core/geometry/support/MeshComponent.js";
 import MeshLocalVertexSpace from "@arcgis/core/geometry/support/MeshLocalVertexSpace.js";
 import MeshMaterial from "@arcgis/core/geometry/support/MeshMaterial.js";
 import GraphicsLayer from "@arcgis/core/layers/GraphicsLayer.js";
-import TileLayer from "@arcgis/core/layers/TileLayer.js";
 import ExtrudeSymbol3DLayer from "@arcgis/core/symbols/ExtrudeSymbol3DLayer.js";
 import FillSymbol3DLayer from "@arcgis/core/symbols/FillSymbol3DLayer.js";
 import MeshSymbol3D from "@arcgis/core/symbols/MeshSymbol3D.js";
@@ -24,9 +22,11 @@ import { contains, type Position } from "../geojson";
 import { parseGlb, podiumFrame, splitBuildings, type Building, type PodiumFrame } from "../podiumGlb";
 import { designFromModel, designTotals, frameShift, type DesignBuilding, type SectionKind } from "../podiumModel";
 import { podiumBoundary, type Scenario } from "../scenarios";
+import { makeBasemap, money, number, storedBasemap } from "../scene3d";
 import type { PodiumDesignRecord, PodiumOption } from "../store";
+import DesignSwitcher from "./DesignSwitcher";
+import SceneTools from "./SceneTools";
 
-const IMAGERY_URL = "https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer";
 const EDGES = new SolidEdges3D({ color: [15, 23, 42, 0.5], size: 0.5 });
 const DESIGN_SYMBOL = new MeshSymbol3D({ symbolLayers: [new FillSymbol3DLayer({ edges: EDGES })] });
 const SITE_SYMBOL = new SimpleFillSymbol({ color: [56, 226, 234, 0.06], outline: { color: [56, 226, 234, 1], width: 2.5 } });
@@ -59,9 +59,6 @@ interface Footprint {
 
 const metres = (m: number) => Math.round(m).toLocaleString("en-US");
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
-const number = (n: number, digits = 0) => n.toLocaleString("en-US", { maximumFractionDigits: digits });
-const money = ({ value, currency }: { value: number; currency: string }) =>
-  `${value >= 1e9 ? `${number(value / 1e9, 2)} bn` : value >= 1e6 ? `${number(value / 1e6, 1)} M` : number(value)} ${currency}`.trim();
 
 async function toWgs84(json: object) {
   if (!projectOperator.isLoaded()) await projectOperator.load();
@@ -143,7 +140,11 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
   const containerRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [view, setView] = useState<SceneView | null>(null);
+  const [parcel, setParcel] = useState<Polygon | null>(null);
   const designRef = useRef<GraphicsLayer | null>(null);
+  // The camera frames the first design only, so switching designs compares them from the same viewpoint.
+  const framedRef = useRef(false);
+  const escapeRef = useRef<(() => boolean) | null>(null);
   const [status, setStatus] = useState<Status>({ kind: "empty" });
   const options = design?.options ?? [];
   const [source, setSource] = useState<Source | null>(() => {
@@ -165,28 +166,31 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
     const container = containerRef.current;
     if (!container) return;
     let alive = true;
+    framedRef.current = false;
     const site = new GraphicsLayer({ title: "Site" });
     const designLayer = new GraphicsLayer({ title: "Podium design", elevationInfo: { mode: "absolute-height" } });
     designRef.current = designLayer;
     const sceneView = new SceneView({
       container,
-      map: new EsriMap({ basemap: new Basemap({ baseLayers: [new TileLayer({ url: IMAGERY_URL })] }), ground: "world-elevation", layers: [site, designLayer] }),
+      map: new EsriMap({ basemap: makeBasemap(storedBasemap()), ground: "world-elevation", layers: [site, designLayer] }),
       // A clear sky. The clouds over this site are in the imagery itself, which weather settings can't remove.
       environment: { weather: { type: "sunny", cloudCover: 0 } },
       ui: { components: [] },
     });
     void (async () => {
-      const parcel = await toWgs84(scenario.site.geometry);
-      site.add(new Graphic({ geometry: parcel, symbol: SITE_SYMBOL }));
+      const outline = await toWgs84(scenario.site.geometry);
+      site.add(new Graphic({ geometry: outline, symbol: SITE_SYMBOL }));
       if (scenario.buildable?.geometry) site.add(new Graphic({ geometry: await toWgs84(scenario.buildable.geometry), symbol: BUILDABLE_SYMBOL }));
       await sceneView.when();
       if (!alive) return;
-      await sceneView.goTo({ target: parcel, tilt: 55 }, { animate: false }).catch(() => undefined);
+      await sceneView.goTo({ target: outline, tilt: 55 }, { animate: false }).catch(() => undefined);
+      setParcel(outline);
       setView(sceneView);
     })().catch((error: unknown) => alive && setStatus({ kind: "error", message: messageOf(error) }));
     return () => {
       alive = false;
       setView(null);
+      setParcel(null);
       sceneView.destroy();
     };
   }, [scenario]);
@@ -253,18 +257,42 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
         outside: footprints.filter((b) => !contains(siteXY, b.center)).length,
         moved,
       });
-      await view.goTo({ target: layer.graphics.toArray(), tilt: 60 }).catch(() => undefined);
+      if (!framedRef.current) {
+        framedRef.current = true;
+        await view.goTo({ target: layer.graphics.toArray(), tilt: 60 }).catch(() => undefined);
+      }
     })().catch((error: unknown) => alive && setStatus({ kind: "error", message: messageOf(error) }));
     return () => {
       alive = false;
     };
   }, [view, source, option, parsed, drawModel, scenario]);
 
+  const zoomToDesign = () => {
+    const graphics = designRef.current?.graphics.toArray() ?? [];
+    const target = graphics.length ? graphics : parcel;
+    if (view && target) void view.goTo({ target, tilt: 60 }).catch(() => undefined);
+  };
+
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+    const typing = (target: EventTarget | null) => target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
+    const pick = (index: number) => options[index] && setSource({ kind: "option", id: options[index].id });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (!escapeRef.current?.()) onClose();
+        return;
+      }
+      if (typing(e.target) || e.metaKey || e.ctrlKey || e.altKey || options.length < 2) return;
+      const at = Math.max(0, options.findIndex((o) => source?.kind === "option" && o.id === source.id));
+      if (/^[1-9]$/.test(e.key)) pick(Number(e.key) - 1);
+      // The 3D view pans with the arrow keys when it has focus.
+      else if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && !containerRef.current?.contains(e.target as Node)) {
+        pick((at + (e.key === "ArrowRight" ? 1 : -1) + options.length) % options.length);
+      }
+    };
+    // Capture phase: Esc reaches the open tool before the 3D view ends its placement on its own.
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onClose, options, source]);
 
   const choose = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -288,16 +316,6 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
             <calcite-icon icon="x" scale="s" />
           </button>
         </header>
-
-        {options.length > 0 && (
-          <div className="review3d__options" role="group" aria-label="Podium designs">
-            {options.map((o) => (
-              <button key={o.id} type="button" className={`zchip${source?.kind === "option" && source.id === o.id ? " is-on" : ""}`} onClick={() => setSource({ kind: "option", id: o.id })}>
-                {o.name}
-              </button>
-            ))}
-          </div>
-        )}
 
         {option && (
           <div className="review3d__switch">
@@ -425,6 +443,9 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
         </button>
         <input ref={fileRef} type="file" accept=".glb,model/gltf-binary" hidden onChange={(e) => void choose(e)} />
       </aside>
+
+      {options.length > 0 && <DesignSwitcher options={options} selectedId={source?.kind === "option" ? source.id : null} onSelect={(id) => setSource({ kind: "option", id })} />}
+      {view && parcel && <SceneTools view={view} site={parcel} onZoomToDesign={zoomToDesign} escapeRef={escapeRef} />}
     </div>
   );
 }

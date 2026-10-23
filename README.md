@@ -31,7 +31,7 @@ It is the first half of a larger workflow: ArcGIS finds and explains the best la
 5. **Run the analysis.** Every candidate parcel in the area is checked, slope is measured with USGS 3DEP, and the parcels that pass are ranked. Changing rules or weights afterwards re-ranks the results without a new run.
 6. **Shortlist and brief.** Shortlist sites and create a scenario: a design brief with the site boundary, the buildable area after a setback, no-build areas, ground elevation and the data sources used. Review it, approve it and download it as JSON.
 7. **Design in Podium.** With the ArcGIS Podium Bridge browser extension, one button creates the Podium project, sets the site boundary, runs Podium's data center generator with the brief's numbers, saves the options as scenarios and brings them back. Without it, copy the site boundary into Podium by hand.
-8. **Review Podium's designs in 3D.** Each design is placed where Podium put it, on the real parcel and terrain, as Podium's own 3D model or as outlines, with Podium's figures. A GLB exported from Podium can also be imported by hand.
+8. **Review Podium's designs in 3D.** Each design is placed where Podium put it, on the real parcel and terrain, as Podium's own 3D model or as outlines, with Podium's figures. Cards along the bottom switch between designs from the same viewpoint. The view shows the existing 3D buildings around the site and offers a choice of basemaps, and its tools measure distance and area, check line of sight and viewsheds, work out cut and fill for a level pad, and show sun and shadows for any time of day. A GLB exported from Podium can also be imported by hand.
 
 An in-app guide walks through each step.
 
@@ -42,7 +42,7 @@ An in-app guide walks through each step.
 | Live preview, area, data check, criteria, ranking | Built |
 | Shortlist, scenarios and design brief (JSON download) | Built |
 | Send the approved brief to Podium | Built with the ArcGIS Podium Bridge extension (Chrome and Edge). Without it, by hand: copy the boundary into Podium's Coordinate Entry and type the brief's numbers into its data center generator |
-| Review returned designs in 3D | Built: designs come back through the bridge, or import the 3D model (GLB) exported from Podium; each building is placed on the parcel and set on the terrain |
+| Review returned designs in 3D | Built: designs come back through the bridge, or import the 3D model (GLB) exported from Podium; each building is placed on the parcel and set on the terrain, among the existing 3D buildings, with measurement, sight, cut and fill, and sun tools |
 
 ## Data sources
 
@@ -70,6 +70,8 @@ All sources are public and queried live. Most layers come from the public ArcGIS
 | Nevada counties | US Census Bureau, Nevada Legislative Counsel Bureau | County boundaries |
 
 The copies exist because the original servers are often down. The pill at the top right of the app checks all of these sources live.
+
+The 3D review also shows, for display only: Esri World Imagery, including its Wayback release of 30 January 2025 (the current release has clouds over the Tahoe-Reno Industrial Center); Esri's topographic, street and dark gray basemaps; World Elevation; and Esri 3D Buildings.
 
 Owner names and mailing addresses on the parcel records are never requested or shown.
 
