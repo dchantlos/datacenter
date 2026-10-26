@@ -1,8 +1,10 @@
 import "@esri/calcite-components/components/calcite-icon";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import Camera from "@arcgis/core/Camera.js";
 import Graphic from "@arcgis/core/Graphic.js";
 import EsriMap from "@arcgis/core/Map.js";
 import Multipoint from "@arcgis/core/geometry/Multipoint.js";
+import Point from "@arcgis/core/geometry/Point.js";
 import Polygon from "@arcgis/core/geometry/Polygon.js";
 import SpatialReference from "@arcgis/core/geometry/SpatialReference.js";
 import * as projectOperator from "@arcgis/core/geometry/operators/projectOperator.js";
@@ -10,6 +12,8 @@ import GraphicsLayer from "@arcgis/core/layers/GraphicsLayer.js";
 import ExtrudeSymbol3DLayer from "@arcgis/core/symbols/ExtrudeSymbol3DLayer.js";
 import FillSymbol3DLayer from "@arcgis/core/symbols/FillSymbol3DLayer.js";
 import MeshSymbol3D from "@arcgis/core/symbols/MeshSymbol3D.js";
+import ObjectSymbol3DLayer from "@arcgis/core/symbols/ObjectSymbol3DLayer.js";
+import PointSymbol3D from "@arcgis/core/symbols/PointSymbol3D.js";
 import PolygonSymbol3D from "@arcgis/core/symbols/PolygonSymbol3D.js";
 import SimpleFillSymbol from "@arcgis/core/symbols/SimpleFillSymbol.js";
 import SolidEdges3D from "@arcgis/core/symbols/edges/SolidEdges3D.js";
@@ -39,6 +43,21 @@ const SECTION_COLORS: Record<SectionKind, number[]> = {
 /** Podium's boundary may sit this far (RMS) from the outline it was given and still count as the same site. */
 const SAME_SITE_RMS_M = 2;
 
+// Easter egg: the hidden button in the top-right corner shows a monkey with a banana beside the design.
+const MONKEY_HEIGHT_M = 4.572; // 15 ft
+const MONKEY_SYMBOL = new PointSymbol3D({
+  symbolLayers: [
+    new ObjectSymbol3DLayer({
+      resource: { href: new URL(`${import.meta.env.BASE_URL}easter-egg/monkey-banana.glb`, window.location.href).href },
+      height: MONKEY_HEIGHT_M,
+      anchor: "bottom",
+    }),
+  ],
+});
+/** The monkey stands this far south of the southernmost building, facing the camera and the sun. */
+const MONKEY_GAP_M = 6;
+const MONKEY_VIEW = { distance: 34, height: 9 };
+
 /** Imported designs by scenario id, kept while the app is open. */
 const imported = new Map<string, { name: string; data: ArrayBuffer }>();
 
@@ -53,6 +72,12 @@ interface Footprint {
   center: Position;
   min: Position;
   max: Position;
+}
+
+interface MonkeySpot {
+  at: Position;
+  eye: Position;
+  ground: number;
 }
 
 const metres = (m: number) => Math.round(m).toLocaleString("en-US");
@@ -122,6 +147,9 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
   // The camera frames the first design only, so switching designs compares them from the same viewpoint.
   const framedRef = useRef(false);
   const escapeRef = useRef<(() => boolean) | null>(null);
+  const eggRef = useRef<GraphicsLayer | null>(null);
+  const [spot, setSpot] = useState<MonkeySpot | null>(null);
+  const [monkey, setMonkey] = useState(false);
   const [status, setStatus] = useState<Status>({ kind: "empty" });
   const options = design?.options ?? [];
   const [source, setSource] = useState<Source | null>(() => {
@@ -147,9 +175,11 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
     const site = new GraphicsLayer({ title: "Site" });
     const designLayer = new GraphicsLayer({ title: "Podium design", elevationInfo: { mode: "absolute-height" } });
     designRef.current = designLayer;
+    const egg = new GraphicsLayer({ title: "Easter egg", elevationInfo: { mode: "on-the-ground" } });
+    eggRef.current = egg;
     const sceneView = new SceneView({
       container,
-      map: new EsriMap({ basemap: makeBasemap(storedBasemap()), ground: "world-elevation", layers: [site, designLayer] }),
+      map: new EsriMap({ basemap: makeBasemap(storedBasemap()), ground: "world-elevation", layers: [site, designLayer, egg] }),
       // A clear sky. The clouds over this site are in the imagery itself, which weather settings can't remove.
       environment: { weather: { type: "sunny", cloudCover: 0 } },
       ui: { components: [] },
@@ -168,6 +198,7 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
       alive = false;
       setView(null);
       setParcel(null);
+      setSpot(null);
       sceneView.destroy();
     };
   }, [scenario]);
@@ -223,6 +254,9 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
       if (!alive) return;
       layer.removeAll();
       layer.addMany(graphics(ground));
+      const south = footprints.reduce((best, f, i) => (f.min[1] < footprints[best].min[1] ? i : best), 0);
+      const [x, y] = [footprints[south].center[0], footprints[south].min[1] - MONKEY_GAP_M];
+      setSpot({ at: frame.toLonLat([x, y]), eye: frame.toLonLat([x, y - MONKEY_VIEW.distance]), ground: ground[south] });
       setStatus({
         kind: "placed",
         drawn: glb ? "model" : "outlines",
@@ -242,6 +276,23 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
       alive = false;
     };
   }, [view, source, option, parsed, drawModel, scenario]);
+
+  useEffect(() => {
+    const egg = eggRef.current;
+    if (!view || !egg) return;
+    egg.removeAll();
+    if (monkey && spot) egg.add(new Graphic({ geometry: new Point({ longitude: spot.at[0], latitude: spot.at[1] }), symbol: MONKEY_SYMBOL }));
+  }, [view, monkey, spot]);
+
+  const toggleMonkey = () => {
+    if (!view || !spot) return;
+    setMonkey(!monkey);
+    if (monkey) return;
+    const { distance, height } = MONKEY_VIEW;
+    const tilt = 90 - (Math.atan2(height - MONKEY_HEIGHT_M / 2, distance) * 180) / Math.PI;
+    const position = new Point({ longitude: spot.eye[0], latitude: spot.eye[1], z: spot.ground + height });
+    void view.goTo(new Camera({ position, heading: 0, tilt })).catch(() => undefined);
+  };
 
   const zoomToDesign = () => {
     const graphics = designRef.current?.graphics.toArray() ?? [];
@@ -293,6 +344,7 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
   return (
     <div className="review3d" role="dialog" aria-modal="true" aria-label={`Scenario ${scenario.id} in 3D`}>
       <div ref={containerRef} className="review3d__view" />
+      <button type="button" className="review3d__egg" tabIndex={-1} aria-hidden="true" onClick={toggleMonkey} />
       <aside className="review3d__panel glass">
         <header className="card__head">
           <div>

@@ -2338,6 +2338,20 @@ input.wbar:focus-visible::-moz-range-thumb {
   inset: 0;
 }
 
+/* The easter egg's hidden button */
+.review3d__egg {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+
 .review3d__panel {
   position: absolute;
   top: 16px;
