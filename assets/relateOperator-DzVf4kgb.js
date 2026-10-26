@@ -1,0 +1,1 @@
+import"./apiConverter-Ch2XLifc.js";export{a as accelerateGeometry,n as execute,r as isValidDE9IM,i as supportsCurves}from"./relateOperator-Cp2cw1di.js";

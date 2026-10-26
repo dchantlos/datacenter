@@ -1,0 +1,1 @@
+import"./apiConverter-Ch2XLifc.js";export{n as execute,t as supportsCurves}from"./centroidOperator-toRIlnJ8.js";

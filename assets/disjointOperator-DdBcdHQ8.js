@@ -1,1 +1,0 @@
-import{St as e}from"./SpatialReference-DeRBp5Sh.js";import{o as t,r as n}from"./jsonConverter-BnhJeSdO.js";var r=new e;function i(e,i){let a=t(e);return r.execute(a.getGeometry(),n(i),a.getSpatialReference())}export{i as execute};
