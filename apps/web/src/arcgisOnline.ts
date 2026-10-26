@@ -132,14 +132,21 @@ export async function openLayer(s: Session, itemId: string): Promise<{ layer: Sc
 
 /** Adds the design as one 3D object, then removes the designs published earlier for the same parcel. */
 export async function publishDesign(layer: SceneLayer, mesh: Mesh, design: PublishedDesign) {
-  const earlier = await layer.queryObjectIds({ where: replaceWhere(design.apn) });
+  // 3D object layers only take edits that name features by global ID.
+  const globalIdField = layer.fields.find((f) => f.type === "global-id")?.name;
+  const earlier = globalIdField
+    ? (await layer.queryFeatures({ where: replaceWhere(design.apn), outFields: [globalIdField], returnGeometry: false })).features.flatMap((f) => {
+        const id: unknown = f.attributes?.[globalIdField];
+        return typeof id === "string" ? [id] : [];
+      })
+    : [];
   const attributes = designAttributes(design, layer.fields.map((f) => f.name));
   const { addFeatureResults } = await layer.applyEdits({ addFeatures: [new Graphic({ geometry: mesh, attributes })] });
   const added = addFeatureResults[0];
   if (!added || added.error) throw new Error(`ArcGIS Online didn't add the design: ${added?.error?.message ?? "no reason given"}`);
   let replaced = 0;
   if (earlier.length) {
-    const { deleteFeatureResults } = await layer.applyEdits({ deleteFeatures: earlier.map((objectId) => ({ objectId })) });
+    const { deleteFeatureResults } = await layer.applyEdits({ deleteFeatures: earlier.map((globalId) => ({ globalId })) });
     replaced = deleteFeatureResults.filter((r) => !r.error).length;
   }
   // Read back from the layer: the link the published 3D object now carries.
