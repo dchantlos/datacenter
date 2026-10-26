@@ -1,0 +1,1 @@
+import"./oitResolution.glsl-CziGeqeq.js";import"./doublePrecisionUtils-CvPW6smK.js";import"./ShaderBuilder-CrOLBtCv.js";import"./VertexColor.glsl-CMel1c6B.js";export{n as build}from"./ColorMaterial-AFtGo2VI.js";

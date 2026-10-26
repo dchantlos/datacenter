@@ -1,1 +1,0 @@
-import{n as e}from"./catalogUtils-DJ-ox6ja.js";import{c as t,h as n}from"./layerUtils-WcuWgKSS.js";function r(e){return typeof e==`object`&&!!e&&`loaded`in e&&!0===e.loaded&&`type`in e}function i(i){return!(!r(i)||!t(i)?.operations?.supportsEditing||`editingEnabled`in i&&!n(i)||e(i))}export{i as t};

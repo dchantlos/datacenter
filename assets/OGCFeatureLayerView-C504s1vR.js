@@ -1,0 +1,1 @@
+import{t as e}from"./decorators-BTkzlYqr.js";import{r as t}from"./tslib.es6-qUHyP9zl.js";import{t as n}from"./FeatureLikeLayerView-FHaiGsdS.js";var r=class extends n{constructor(){super(...arguments),this.layer=null}get availableFields(){return this.layer.fieldsIndex.fields.map(e=>e.name)}};t([e({readOnly:!0})],r.prototype,`availableFields`,null);export{r as t};
