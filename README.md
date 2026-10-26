@@ -143,7 +143,7 @@ The brief lists each step as it happens, and the 3D review opens once everything
 
 ## Publish designs to ArcGIS Online
 
-**Publish to ArcGIS Online**, in the **Review in 3D** panel, puts the selected design in a 3D object layer of the ArcGIS organization you sign in to. The design becomes one 3D object, Podium's own 3D model with each building on its ground level, and its attributes link back to Podium:
+**Publish to ArcGIS Online**, in the **Review in 3D** panel, puts the selected design, or with **Publish all designs** every design of the scenario, in a 3D object layer of the ArcGIS organization you sign in to. Each design becomes one 3D object, Podium's own 3D model with each building on its ground level, and its attributes link back to Podium:
 
 | Field | Value |
 |---|---|
@@ -153,7 +153,7 @@ The brief lists each step as it happens, and the 3D review opens once everything
 | `buildings`, `it_mw`, `height_m` | Podium's figures for the design |
 | `published` | When it was published |
 
-Publishing a design replaces the design published earlier for the same parcel, so designs don't overlap. Nothing leaves the browser until you press **Publish**.
+Publishing replaces what the app published for the same parcel before, so a parcel holds the design or designs you published last. Designs of the same parcel sit on top of each other: filter the layer by `design` in ArcGIS Online to see one at a time. Nothing leaves the browser until you press **Publish**.
 
 **Set up once.**
 

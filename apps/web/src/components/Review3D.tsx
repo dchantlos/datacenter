@@ -249,14 +249,14 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
     if (view && target) void view.goTo({ target, tilt: 60 }).catch(() => undefined);
   };
 
-  /** Podium's 3D model of the selected design as one mesh, set on the terrain as it is drawn. */
-  const publishMesh = async () => {
-    if (!view || !option?.glb) throw new Error("this design has no 3D model from Podium");
-    const { frame } = await designFrame(scenario, parsed?.siteBoundary ?? null);
-    const buildings = splitBuildings(parseGlb(option.glb));
-    if (!buildings.length) throw new Error("Podium's 3D model has no building geometry");
+  /** Podium's 3D model of a design as one mesh, set on the terrain as it is drawn. */
+  const publishMesh = async (o: PodiumOption) => {
+    if (!view || !o.glb) throw new Error(`${o.name} has no 3D model from Podium`);
+    const { frame } = await designFrame(scenario, designFromModel(o.model).siteBoundary);
+    const buildings = splitBuildings(parseGlb(o.glb));
+    if (!buildings.length) throw new Error(`Podium's 3D model of ${o.name} has no building geometry`);
     const mesh = designMesh(buildings, frame, await groundLevels(view, buildings, frame));
-    if (!mesh) throw new Error("couldn't combine the buildings into one 3D object");
+    if (!mesh) throw new Error(`couldn't combine the buildings of ${o.name} into one 3D object`);
     return mesh;
   };
 
@@ -424,7 +424,7 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
           </>
         )}
 
-        {option && <PublishPanel scenario={scenario} option={option} projectUrl={design?.projectUrl ?? null} totals={totals} makeMesh={publishMesh} />}
+        {option && <PublishPanel scenario={scenario} options={options} option={option} projectUrl={design?.projectUrl ?? null} makeMesh={publishMesh} />}
 
         {!options.length && (
           <p className="note note--left">

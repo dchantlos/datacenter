@@ -2,7 +2,8 @@ import "@esri/calcite-components/components/calcite-icon";
 import { useEffect, useState } from "react";
 import type Mesh from "@arcgis/core/geometry/Mesh.js";
 import type { ObjectLayer, Session } from "../arcgisOnline";
-import type { designTotals } from "../podiumModel";
+import { designFromModel, designTotals } from "../podiumModel";
+import type { PublishedDesign } from "../publish";
 import type { Scenario } from "../scenarios";
 import type { PodiumOption } from "../store";
 
@@ -24,19 +25,23 @@ function signInProblem(error: unknown) {
 type State =
   | { kind: "idle" }
   | { kind: "working"; text: string }
-  | { kind: "done"; layer: ObjectLayer; design: string; replaced: number; kept: number; added: number; savedLink: string | null }
+  | { kind: "done"; layer: ObjectLayer; designs: string[]; replaced: number; kept: number; added: number; savedLink: string | null }
   | { kind: "error"; message: string };
+
+const listOf = (names: string[]) => (names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`);
 
 interface Props {
   scenario: Scenario;
+  /** Every design Podium sent back for the scenario. */
+  options: PodiumOption[];
+  /** The design on screen. */
   option: PodiumOption;
   projectUrl: string | null;
-  totals: ReturnType<typeof designTotals> | null;
-  /** Podium's 3D model of the design as one mesh on the terrain. */
-  makeMesh: () => Promise<Mesh>;
+  /** Podium's 3D model of a design as one mesh on the terrain. */
+  makeMesh: (option: PodiumOption) => Promise<Mesh>;
 }
 
-/** Publishes the selected design to a 3D object layer in the user's ArcGIS organization, linked back to Podium. */
+/** Publishes the scenario's designs to a 3D object layer in the user's ArcGIS organization, linked back to Podium. */
 export default function PublishPanel(props: Props) {
   const [api, setApi] = useState<Api | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
@@ -58,8 +63,8 @@ export default function PublishPanel(props: Props) {
   );
 }
 
-function Publisher({ api, scenario, option, projectUrl, totals, makeMesh }: Props & { api: Api }) {
-  const { CALLBACK_URL, appIdFromEnv, itemPageUrl, layerIdFromEnv, newItemUrl, objectLayers, openLayer, publishDesign, restoreSignIn, saveAppId, signIn, signOut, storedAppId } = api;
+function Publisher({ api, scenario, options, option, projectUrl, makeMesh }: Props & { api: Api }) {
+  const { CALLBACK_URL, addDesign, appIdFromEnv, earlierDesigns, itemPageUrl, layerIdFromEnv, newItemUrl, objectLayers, openLayer, removeDesigns, restoreSignIn, saveAppId, signIn, signOut, storedAppId } = api;
   const [appId, setAppId] = useState(storedAppId);
   const [draftId, setDraftId] = useState("");
   const [session, setSession] = useState<Session | null>(null);
@@ -125,29 +130,42 @@ function Publisher({ api, scenario, option, projectUrl, totals, makeMesh }: Prop
     setState({ kind: "idle" });
   };
 
-  const publish = async () => {
-    if (!session || !chosen) return;
+  const publishedDesign = (o: PodiumOption): PublishedDesign => {
+    const totals = designTotals(designFromModel(o.model));
+    return {
+      apn: scenario.site.apn,
+      scenario: `${scenario.id} v${scenario.version}`,
+      design: o.name,
+      buildings: totals.buildings,
+      itMW: totals.itMW,
+      heightM: totals.heightM,
+      projectUrl,
+      scenarioUrl: o.url,
+      published: Date.now(),
+    };
+  };
+
+  /** Adds each design as its own 3D object, then removes what was published for the parcel before. */
+  const publish = async (list: PodiumOption[]) => {
+    if (!session || !chosen || !list.length) return;
     localStorage.setItem(LAYER_KEY, chosen.id);
     setLayerId(chosen.id);
     try {
       setState({ kind: "working", text: `Opening ${chosen.title}` });
       const { layer, added } = await openLayer(session, chosen.id);
       try {
-        setState({ kind: "working", text: "Setting the buildings on the ground" });
-        const mesh = await makeMesh();
-        setState({ kind: "working", text: `Uploading ${option.name} to ArcGIS Online` });
-        const result = await publishDesign(layer, mesh, {
-          apn: scenario.site.apn,
-          scenario: `${scenario.id} v${scenario.version}`,
-          design: option.name,
-          buildings: totals?.buildings ?? 0,
-          itMW: totals?.itMW ?? null,
-          heightM: totals?.heightM ?? null,
-          projectUrl,
-          scenarioUrl: option.url,
-          published: Date.now(),
-        });
-        setState({ kind: "done", layer: chosen, design: option.name, replaced: result.replaced, kept: result.kept, added: added.length, savedLink: result.savedLink });
+        const earlier = await earlierDesigns(layer, scenario.site.apn);
+        let savedLink: string | null = null;
+        for (const [i, o] of list.entries()) {
+          const count = list.length > 1 ? ` (${i + 1} of ${list.length})` : "";
+          setState({ kind: "working", text: `Setting ${o.name} on the ground${count}` });
+          const mesh = await makeMesh(o);
+          setState({ kind: "working", text: `Uploading ${o.name} to ArcGIS Online${count}` });
+          const result = await addDesign(layer, mesh, publishedDesign(o));
+          savedLink ??= result.savedLink;
+        }
+        const replaced = await removeDesigns(layer, earlier);
+        setState({ kind: "done", layer: chosen, designs: list.map((o) => o.name), replaced, kept: earlier.length - replaced, added: added.length, savedLink });
       } finally {
         layer.destroy();
       }
@@ -155,6 +173,8 @@ function Publisher({ api, scenario, option, projectUrl, totals, makeMesh }: Prop
       setState({ kind: "error", message: `Couldn't publish: ${messageOf(error)}.` });
     }
   };
+
+  const withModels = options.filter((o) => o.glb);
 
   return (
     <>
@@ -235,14 +255,22 @@ function Publisher({ api, scenario, option, projectUrl, totals, makeMesh }: Prop
               .
             </p>
           )}
-          <button type="button" className="btn btn--s" disabled={!chosen || !option.glb || busy} onClick={() => void publish()}>
-            <calcite-icon icon="upload" scale="s" />
-            Publish {option.name}
-          </button>
+          <div className="publish__actions">
+            <button type="button" className="btn btn--s" disabled={!chosen || !option.glb || busy} onClick={() => void publish([option])}>
+              <calcite-icon icon="upload" scale="s" />
+              Publish {option.name}
+            </button>
+            {withModels.length > 1 && (
+              <button type="button" className="btn btn--s btn--ghost" disabled={!chosen || busy} onClick={() => void publish(withModels)}>
+                Publish all {withModels.length} designs
+              </button>
+            )}
+          </div>
           <small className="muted">
             {option.glb
-              ? `Podium's 3D model of ${option.name} becomes one 3D object, with links to its Podium project and scenario. It replaces the design published earlier for parcel ${scenario.site.apn}.`
+              ? `Each design becomes one 3D object, with links to its Podium project and scenario. Publishing replaces what was published for parcel ${scenario.site.apn} before. Designs of the same parcel overlap, so filter the layer by design in ArcGIS Online to see one at a time.`
               : "This needs Podium's 3D model of the design: press Bring designs back in the brief."}
+            {withModels.length > 1 && withModels.length < options.length && ` ${options.length - withModels.length} without Podium's 3D model are left out.`}
           </small>
         </>
       )}
@@ -255,7 +283,7 @@ function Publisher({ api, scenario, option, projectUrl, totals, makeMesh }: Prop
       {state.kind === "error" && <p className="caveat">{state.message}</p>}
       {state.kind === "done" && (
         <p className="note note--left" aria-live="polite">
-          Published {state.design} to{" "}
+          Published {listOf(state.designs)} to{" "}
           <a className="link" href={itemPageUrl(state.layer.id)} target="_blank" rel="noreferrer">
             {state.layer.title}
           </a>
@@ -265,7 +293,7 @@ function Publisher({ api, scenario, option, projectUrl, totals, makeMesh }: Prop
           {state.savedLink && (
             <>
               {" "}
-              Its <code>podium_project_url</code> links to{" "}
+              {state.designs.length > 1 ? "Their" : "Its"} <code>podium_project_url</code> links to{" "}
               <a className="link" href={state.savedLink} target="_blank" rel="noreferrer">
                 the Podium project
               </a>

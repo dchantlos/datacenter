@@ -130,26 +130,23 @@ export async function openLayer(s: Session, itemId: string): Promise<{ layer: Sc
   return { layer: await loadLayer(s, itemId), added: missing.map((f) => f.name) };
 }
 
-/** Adds the design as one 3D object, then removes the designs published earlier for the same parcel. */
-export async function publishDesign(layer: SceneLayer, mesh: Mesh, design: PublishedDesign) {
-  // 3D object layers only take edits that name features by global ID.
+/** Global IDs of the designs this app published earlier for the parcel. 3D object layers only take edits by global ID. */
+export async function earlierDesigns(layer: SceneLayer, apn: string) {
   const globalIdField = layer.fields.find((f) => f.type === "global-id")?.name;
-  const earlier = globalIdField
-    ? (await layer.queryFeatures({ where: replaceWhere(design.apn), outFields: [globalIdField], returnGeometry: false })).features.flatMap((f) => {
-        const id: unknown = f.attributes?.[globalIdField];
-        return typeof id === "string" ? [id] : [];
-      })
-    : [];
+  if (!globalIdField) return [];
+  const { features } = await layer.queryFeatures({ where: replaceWhere(apn), outFields: [globalIdField], returnGeometry: false });
+  return features.flatMap((f) => {
+    const id: unknown = f.attributes?.[globalIdField];
+    return typeof id === "string" ? [id] : [];
+  });
+}
+
+/** Adds one design as a 3D object, and reads back the Podium link it now carries. */
+export async function addDesign(layer: SceneLayer, mesh: Mesh, design: PublishedDesign) {
   const attributes = designAttributes(design, layer.fields.map((f) => f.name));
   const { addFeatureResults } = await layer.applyEdits({ addFeatures: [new Graphic({ geometry: mesh, attributes })] });
   const added = addFeatureResults[0];
-  if (!added || added.error) throw new Error(`ArcGIS Online didn't add the design: ${added?.error?.message ?? "no reason given"}`);
-  let replaced = 0;
-  if (earlier.length) {
-    const { deleteFeatureResults } = await layer.applyEdits({ deleteFeatures: earlier.map((globalId) => ({ globalId })) });
-    replaced = deleteFeatureResults.filter((r) => !r.error).length;
-  }
-  // Read back from the layer: the link the published 3D object now carries.
+  if (!added || added.error) throw new Error(`ArcGIS Online didn't add ${design.design}: ${added?.error?.message ?? "no reason given"}`);
   const savedLink =
     added.objectId == null
       ? null
@@ -157,5 +154,12 @@ export async function publishDesign(layer: SceneLayer, mesh: Mesh, design: Publi
           .queryFeatures({ objectIds: [added.objectId], outFields: ["podium_project_url"], returnGeometry: false })
           .then(({ features }) => (features[0]?.attributes?.podium_project_url as string | undefined) ?? null)
           .catch(() => null);
-  return { objectId: added.objectId ?? null, replaced, kept: earlier.length - replaced, savedLink };
+  return { objectId: added.objectId ?? null, savedLink };
+}
+
+/** Removes designs by global ID and says how many went. */
+export async function removeDesigns(layer: SceneLayer, globalIds: string[]) {
+  if (!globalIds.length) return 0;
+  const { deleteFeatureResults } = await layer.applyEdits({ deleteFeatures: globalIds.map((globalId) => ({ globalId })) });
+  return deleteFeatureResults.filter((r) => !r.error).length;
 }
