@@ -8,6 +8,7 @@
   --faint: #93a2ba;
   --label: #d1d5db;
   --cyan: #38e2ea;
+  --cyan-rgb: 56, 226, 234;
   --cyan-b: #48dfe5;
   --esri: #2e9bd6;
   --violet: #7c5cff;
@@ -2393,7 +2394,52 @@ input.wbar:focus-visible::-moz-range-thumb {
   border-top: 1px solid var(--border);
 }
 
-.tool-btn {
+.review3d__explode {
+  --accent: var(--cyan);
+  --accent-rgb: var(--cyan-rgb);
+  --muted: var(--dim);
+  --glass-border: var(--border);
+  --glass-border-soft: var(--border-soft);
+  --surface-1: var(--bg);
+}
+
+.review3d__explode .bim-widget__launcher,
+.review3d__explode .bim-widget__launcher.is-active,
+.review3d__explode .bim-widget__launcher.is-busy {
+  box-shadow: none;
+  animation: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.review3d__explode .bim-widget__launcher svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+}
+
+.review3d__explode .bim-widget__panel,
+.review3d__explode .bim-widget__notice {
+  position: absolute;
+  top: 0;
+  bottom: auto;
+  right: calc(100% + 15px);
+  max-width: calc(100vw - 100px);
+}
+
+.review3d__explode .bim-widget__panel {
+  background: var(--bg);
+}
+
+@media (max-width: 700px) {
+  .review3d:has(.bim-widget__launcher.is-active) .review3d__panel {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+.tool-btn,
+.review3d__explode .bim-widget__launcher {
   display: grid;
   place-items: center;
   width: 36px;
@@ -2405,19 +2451,27 @@ input.wbar:focus-visible::-moz-range-thumb {
   cursor: pointer;
 }
 
-.tool-btn:hover:not(:disabled) {
+.tool-btn:hover:not(:disabled),
+.review3d__explode .bim-widget__launcher:hover:not(:disabled) {
   color: #fff;
   background: rgba(255, 255, 255, 0.08);
 }
 
-.tool-btn.is-on {
+.tool-btn.is-on,
+.review3d__explode .bim-widget__launcher.is-active {
   color: var(--cyan);
-  background: rgba(56, 226, 234, 0.14);
+  background: rgba(var(--cyan-rgb), 0.14);
 }
 
-.tool-btn:disabled {
+.tool-btn:disabled,
+.review3d__explode .bim-widget__launcher:disabled {
   opacity: 0.35;
   cursor: default;
+}
+
+.review3d__explode .bim-widget__launcher:disabled {
+  color: var(--dim);
+  background: transparent;
 }
 
 .review3d__card {

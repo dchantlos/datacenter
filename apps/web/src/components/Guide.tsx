@@ -111,6 +111,7 @@ const PAGES: Page[] = [
     actions: [
       "With the bridge, the designs come back by themselves. Pick one from the cards at the bottom of **Review in 3D** (or press 1, 2, 3), and switch between **Podium's 3D model** and **Outlines**.",
       "The toolbar on the right changes the **Basemap**, shows the **3D buildings** around the site, and measures: **Distance**, **Area**, **Line of sight**, **Viewshed**, **Cut and fill** for a level pad, and **Sun and shadows** for any time of day.",
+      "**Explode model**, the exploded cube in that toolbar, opens a small drag pad for Podium's 3D model or an imported GLB. Drag **Upward**, **Outward**, or diagonally. The burst button bounces to halfway; **Reassemble** restores the model. Ground-contacting pieces stay at their original elevation. Choosing a measurement or sun tool closes the preview first.",
       "After changing a design in Podium, press **Bring designs back** in the brief.",
       "Without the bridge: in Podium, export the scenario (**Downloads**, **Scenario Model (GLB)**), then press **Review in 3D** here, **Import Podium design (GLB)** and choose the file.",
       "**Publish to ArcGIS Online**, in the panel, signs you in to your ArcGIS organization and adds the design, or all of them, to a 3D object layer you own, each as one 3D object linked back to its Podium project.",

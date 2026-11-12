@@ -3,6 +3,8 @@ dist/
 .DS_Store
 *.log
 *.local
+test-results/
+playwright-report/
 
 # Planning documents, including internal ones; kept out of this public repo.
 docs/

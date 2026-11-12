@@ -1,5 +1,5 @@
 import "@esri/calcite-components/components/calcite-icon";
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import AreaMeasurementAnalysis from "@arcgis/core/analysis/AreaMeasurementAnalysis.js";
 import DirectLineMeasurementAnalysis from "@arcgis/core/analysis/DirectLineMeasurementAnalysis.js";
 import LineOfSightAnalysis from "@arcgis/core/analysis/LineOfSightAnalysis.js";
@@ -15,6 +15,9 @@ import type DirectLineMeasurementAnalysisView3D from "@arcgis/core/views/3d/anal
 import type LineOfSightAnalysisView3D from "@arcgis/core/views/3d/analysis/LineOfSightAnalysisView3D.js";
 import type ViewshedAnalysisView3D from "@arcgis/core/views/3d/analysis/ViewshedAnalysisView3D.js";
 import type VolumeMeasurementAnalysisView3D from "@arcgis/core/views/3d/analysis/VolumeMeasurementAnalysisView3D.js";
+import { PodiumExploder, type ExplodeSource } from "../explode/PodiumExploder";
+import { explodedCube, mountExplodeWidget } from "../explode/widget.js";
+import "../explode/widget.css";
 import { BASEMAPS, BASEMAP_KEY, DEFAULT_SUN_HOUR, SUN_DAYS, contextBuildings, formatArea, formatLength, formatVolume, startBasemap, storedBasemap, sunDate, thumbnail, type BasemapId, type SunDay } from "../scene3d";
 
 type Tool = "distance" | "area" | "sight" | "viewshed" | "cutfill" | "sun";
@@ -89,6 +92,7 @@ interface Props {
   view: SceneView;
   /** The parcel, in WGS84. */
   site: Polygon;
+  explodeSource: ExplodeSource | null;
   onZoomToDesign: () => void;
   /** Says whether Google 3D, with its own terrain, is the basemap. */
   onGoogle: (on: boolean) => void;
@@ -97,7 +101,7 @@ interface Props {
 }
 
 /** Map context and interactive analysis for the 3D review: basemaps, 3D buildings, measurements, sight, earthworks and sun. */
-export default function SceneTools({ view, site, onZoomToDesign, onGoogle, escapeRef }: Props) {
+export default function SceneTools({ view, site, explodeSource, onZoomToDesign, onGoogle, escapeRef }: Props) {
   const [tool, setTool] = useState<Tool | null>(null);
   const [placing, setPlacing] = useState(false);
   const [lines, setLines] = useState<string[]>([]);
@@ -111,6 +115,9 @@ export default function SceneTools({ view, site, onZoomToDesign, onGoogle, escap
   const [shadowHours, setShadowHours] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const watchRef = useRef<{ remove: () => void } | null>(null);
+  const explodeContainer = useRef<HTMLDivElement>(null);
+  const exploder = useRef<PodiumExploder | null>(null);
+  const beforeExplode = useRef<() => Promise<void>>(() => Promise.resolve());
   // The latest tool request; an older one still waiting gives up.
   const runRef = useRef({ id: 0, done: Promise.resolve() });
   const basemaps = useRef(new Map<BasemapId, Basemap>());
@@ -120,6 +127,29 @@ export default function SceneTools({ view, site, onZoomToDesign, onGoogle, escap
   const shadow = useMemo(() => new ShadowCastAnalysis({ mode: "total-duration", startTimeOfDay: SHADOW_HOURS[0] * 3_600_000, endTimeOfDay: SHADOW_HOURS[1] * 3_600_000 }), []);
   const center = site.extent?.center;
   const google = basemap === "google";
+
+  useLayoutEffect(() => {
+    const container = explodeContainer.current;
+    if (!explodeSource || !container) return;
+    const controller = new PodiumExploder({ view, source: explodeSource, beforeOpen: () => beforeExplode.current() });
+    const widget = mountExplodeWidget({ controller, container });
+    exploder.current = controller;
+    const warm = () => {
+      void controller.prepare().catch((error: unknown) => {
+        if (error instanceof Error && error.name === "AbortError") return;
+        console.error("Could not prepare the Podium explode preview.", error);
+      });
+    };
+    const idle = window.requestIdleCallback?.(warm, { timeout: 1000 });
+    const timer = idle === undefined ? window.setTimeout(warm, 200) : null;
+    return () => {
+      if (idle !== undefined) window.cancelIdleCallback(idle);
+      if (timer !== null) window.clearTimeout(timer);
+      widget.destroy();
+      controller.destroy();
+      if (exploder.current === controller) exploder.current = null;
+    };
+  }, [view, explodeSource]);
 
   // Google's mesh has the existing buildings already.
   useEffect(() => {
@@ -170,7 +200,10 @@ export default function SceneTools({ view, site, onZoomToDesign, onGoogle, escap
 
   useEffect(() => {
     escapeRef.current = () => {
-      if (basemapOpen) setBasemapOpen(false);
+      if (exploder.current?.state.open || exploder.current?.state.opening) {
+        exploder.current.close();
+        explodeContainer.current?.querySelector<HTMLButtonElement>(".bim-widget__launcher")?.focus({ preventScroll: true });
+      } else if (basemapOpen) setBasemapOpen(false);
       else if (placing) stopPlacing();
       else if (tool) close();
       else return false;
@@ -193,6 +226,7 @@ export default function SceneTools({ view, site, onZoomToDesign, onGoogle, escap
   };
 
   const start = (next: Tool) => {
+    exploder.current?.close();
     setBasemapOpen(false);
     const done = after(async () => {
       // One result at a time keeps the view readable on screen: a new tool replaces what was there.
@@ -233,6 +267,15 @@ export default function SceneTools({ view, site, onZoomToDesign, onGoogle, escap
       setShadowHours(false);
       setPlaced(0);
     });
+
+  beforeExplode.current = () => {
+    setBasemapOpen(false);
+    return after(async () => {
+      view.analyses.removeAll();
+      setShadowHours(false);
+      setPlaced(0);
+    });
+  };
 
   const show = (id: BasemapId, next: Basemap) => {
     if (!view.map || wantedRef.current !== id) return;
@@ -288,7 +331,7 @@ export default function SceneTools({ view, site, onZoomToDesign, onGoogle, escap
   const active = TOOLS.find((t) => t.id === tool);
   return (
     <>
-      <div className="review3d__tools glass" role="toolbar" aria-label="3D tools" aria-orientation="vertical">
+      <div className="review3d__tools fab-stack glass" role="toolbar" aria-label="3D tools" aria-orientation="vertical">
         <button
           type="button"
           className={`tool-btn${basemapOpen ? " is-on" : ""}`}
@@ -296,6 +339,7 @@ export default function SceneTools({ view, site, onZoomToDesign, onGoogle, escap
           title="Basemap"
           aria-label="Basemap"
           onClick={() => {
+            exploder.current?.close();
             close();
             setBasemapOpen(!basemapOpen);
           }}
@@ -313,9 +357,32 @@ export default function SceneTools({ view, site, onZoomToDesign, onGoogle, escap
         >
           <calcite-icon icon="i3DBuilding" scale="s" />
         </button>
-        <button type="button" className="tool-btn" title="Zoom to the design" aria-label="Zoom to the design" onClick={onZoomToDesign}>
+        <button
+          type="button"
+          className="tool-btn"
+          title="Zoom to the design"
+          aria-label="Zoom to the design"
+          onClick={() => {
+            if (exploder.current?.state.open) void exploder.current.fit();
+            else onZoomToDesign();
+          }}
+        >
           <calcite-icon icon="zoom-to-object" scale="s" />
         </button>
+        <div className="review3d__explode">
+          {explodeSource ? <div ref={explodeContainer} /> : (
+            <div className="bim-widget">
+              <button
+                type="button"
+                className="bim-widget__launcher"
+                disabled
+                aria-label="Explode model"
+                title="Explode is available for Podium's 3D model or an imported GLB, not outlines."
+                dangerouslySetInnerHTML={{ __html: explodedCube }}
+              />
+            </div>
+          )}
+        </div>
         <hr />
         {TOOLS.map((t) => (
           <button key={t.id} type="button" className={`tool-btn${tool === t.id ? " is-on" : ""}`} aria-pressed={tool === t.id} title={t.label} aria-label={t.label} onClick={() => toggle(t.id)}>

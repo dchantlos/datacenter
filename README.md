@@ -163,6 +163,53 @@ Publishing replaces what the app published for the same parcel before, so a parc
 
 The layer shows new designs straight away. After many uploads, rebuild its cache in ArcGIS Online (the layer's **Settings**, **Rebuild cache**), which uses credits. `VITE_ARCGIS_PORTAL_URL` points the app at your organization's URL (for example `https://<org>.maps.arcgis.com`, which also offers its single sign-on) or an ArcGIS Enterprise portal, and `VITE_ARCGIS_LAYER_ID` picks the layer to publish to by default.
 
+## Exploded views in the 3D review
+
+The **exploded-cube button** in the right-hand toolbar opens the same compact
+two-axis drag pad used by the standalone BIM explode tool. It controls the
+selected **Podium 3D model**, including a manually imported GLB. It is disabled
+for **Outlines** and while a replacement design is being placed.
+
+- Drag **Upward**, **Outward**, or diagonally. The inner burst button bounces to
+  halfway on both axes; **Reassemble** returns to the authored pose.
+- The pad opens immediately. Preparation runs quietly, yields between chunks,
+  and remembers the latest gesture if it is still preparing.
+- Ground-contacting pieces in **each building** retain their original elevation,
+  including buildings placed at different terrain heights. They can still
+  spread outward.
+- Switching designs, switching to outlines, closing the tool or closing the
+  review cancels the preview and restores the native graphics. The camera stays
+  put; **Zoom to the design** can frame the current exploded pose.
+- Measurement, visibility and sun tools first restore the assembled model.
+  Opening explode clears the previous analysis, consistent with the other
+  mutually exclusive 3D tools. Publishing always uses the unchanged GLB and
+  terrain placement, never the temporary inspection pose.
+- Arrow keys adjust the pad, Shift gives fine control, Home reassembles, and
+  Escape closes the tool before closing the review. Reduced motion skips the
+  bounce.
+
+Podium merges its GLB geometry by colour and does not provide BIM floor or asset
+identities. The adapter separates **connected pieces of the exported geometry**,
+using their actual heights, rather than inventing floors or cutting solid
+objects apart. A welded single-piece model cannot provide a detailed BIM
+explosion. This integration does not add Building Explorer or hosted BIM layer
+loading; those remain in the standalone tool.
+
+The preview packs triangles into static GPU buffers, at most two batches per
+building; dragging changes only movement uniforms. It keeps the native mesh's
+local coordinate frame and authored placement. It uses simplified flat shading,
+without native edge outlines or analytical shadows, only while the tool is open.
+Preparation is bounded to 4 million vertices, 10,000 pieces and a 256 MiB budget
+(including an allowance for temporary vertex welding); over-budget models show
+an error instead of dropping geometry. Native review remains available.
+
+The reusable drag-pad UI is in `apps/web/src/explode/widget.js` and `widget.css`;
+the typed Podium adapter, geometry preparation and rendering sit alongside it.
+The experimental `RenderNode` adapter is explicitly pinned to the app's
+**ArcGIS Maps SDK 5.2**. Its isolated immediate-input `requestRender(1)` overload
+is version-coupled and must be revalidated before an SDK upgrade. The app keeps
+its existing 5.2 basemaps and Google 3D support.
+
 ## Google Photorealistic 3D in the 3D review
 
 **Basemap**, **Google 3D** in **Review in 3D** shows the site on Esri's Google Photorealistic 3D basemap (preview). It signs in to ArcGIS Online the same way publishing does (set up the client ID once, as above), and the organization supplies the Google key. Google's mesh replaces the terrain and imagery and already shows today's buildings, so Esri's 3D buildings go off. The design is set on Google's surface, which is flattened to a pad under each building so what stands there today doesn't show through. Publishing still sets designs on Esri's terrain.
@@ -181,9 +228,19 @@ Requires Node.js 20.19 or later (22.12 or later on the 22 line).
 ```bash
 npm install
 npm run dev      # http://localhost:5190
-npm test         # unit tests for the rules, grid and export code
+npm test         # unit tests, including explode geometry and motion
+npm run test:browser  # 3D Review integration tests in installed Chrome
 npm run build
 ```
+
+The browser tests use clearly labelled synthetic Podium-format geometry in
+`apps/web/test/review-explode.html`, the real review component, real ArcGIS
+rendering and public terrain. They check actual model pixels and placement,
+static-buffer reuse, keyboard and drag input, queued opening/cancellation,
+reduced motion, design/file switching, analysis exclusion and responsive layout.
+The fixture is not included in the production build and never writes saved
+scenarios or calls Podium. Set `BROWSER_CHANNEL` to use another installed
+Playwright browser channel.
 
 ## Publish
 

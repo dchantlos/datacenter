@@ -22,8 +22,9 @@ import SimpleFillSymbol from "@arcgis/core/symbols/SimpleFillSymbol.js";
 import SolidEdges3D from "@arcgis/core/symbols/edges/SolidEdges3D.js";
 import SceneView from "@arcgis/core/views/SceneView.js";
 import { buildingMesh, designMesh } from "../designMesh";
+import type { ExplodeSource } from "../explode/PodiumExploder";
 import { contains, type Position } from "../geojson";
-import { parseGlb, podiumFrame, splitBuildings, type PodiumFrame } from "../podiumGlb";
+import { parseGlb, podiumFrame, splitBuildings, type Building, type PodiumFrame } from "../podiumGlb";
 import { designFromModel, designTotals, matchOutline, type DesignBuilding, type SectionKind } from "../podiumModel";
 import { podiumBoundary, type Scenario } from "../scenarios";
 import { makeBasemap, money, number, startBasemap } from "../scene3d";
@@ -167,6 +168,7 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
   const [view, setView] = useState<SceneView | null>(null);
   const [parcel, setParcel] = useState<Polygon | null>(null);
   const designRef = useRef<GraphicsLayer | null>(null);
+  const [explodeSource, setExplodeSource] = useState<ExplodeSource | null>(null);
   // The camera frames the first design only, so switching designs compares them from the same viewpoint.
   const framedRef = useRef(false);
   const escapeRef = useRef<(() => boolean) | null>(null);
@@ -231,6 +233,7 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
   // Draws whatever is selected: a GLB (Podium's export, or a file) as meshes, or Podium's model as extruded outlines.
   useEffect(() => {
     const layer = designRef.current;
+    setExplodeSource(null);
     if (!view || !layer || !source) return;
     const glb = source.kind === "file" ? source.data : drawModel ? option?.glb : null;
     if (source.kind === "option" && !option) return;
@@ -242,10 +245,12 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
       const parcelXY = whole.ring.map(frame.toXY);
       let footprints: Footprint[];
       let graphics: (ground: number[]) => Graphic[];
+      let explodeBuildings: Building[] | null = null;
       let moved = false;
       if (glb) {
         const buildings = splitBuildings(parseGlb(glb));
         if (!buildings.length) throw new Error("the file has no building geometry");
+        explodeBuildings = buildings;
         footprints = buildings;
         graphics = (ground) => buildings.map((b, i) => new Graphic({ geometry: buildingMesh(b, frame.toLonLat(b.center), ground[i]), symbol: DESIGN_SYMBOL }));
       } else {
@@ -285,6 +290,7 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
       if (!alive) return;
       layer.removeAll();
       layer.addMany(graphics(ground));
+      setExplodeSource(explodeBuildings ? { layer, buildings: explodeBuildings, frame, ground } : null);
       if (mesh) mesh.modifications = pads(footprints, ground, frame);
       const south = footprints.reduce((best, f, i) => (f.min[1] < footprints[best].min[1] ? i : best), 0);
       const [x, y] = [footprints[south].center[0], footprints[south].min[1] - MONKEY_GAP_M];
@@ -348,9 +354,13 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
     const pick = (index: number) => options[index] && setSource({ kind: "option", id: options[index].id });
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (!escapeRef.current?.()) onClose();
+        if (escapeRef.current?.()) {
+          e.preventDefault();
+          e.stopPropagation();
+        } else onClose();
         return;
       }
+      if (e.target instanceof Element && e.target.closest(".bim-widget")) return;
       if (typing(e.target) || e.metaKey || e.ctrlKey || e.altKey || options.length < 2) return;
       const at = Math.max(0, options.findIndex((o) => source?.kind === "option" && o.id === source.id));
       if (/^[1-9]$/.test(e.key)) pick(Number(e.key) - 1);
@@ -523,7 +533,7 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
       </aside>
 
       {options.length > 0 && <DesignSwitcher options={options} selectedId={source?.kind === "option" ? source.id : null} onSelect={(id) => setSource({ kind: "option", id })} />}
-      {view && parcel && <SceneTools view={view} site={parcel} onZoomToDesign={zoomToDesign} onGoogle={setGoogle} escapeRef={escapeRef} />}
+      {view && parcel && <SceneTools view={view} site={parcel} explodeSource={explodeSource} onZoomToDesign={zoomToDesign} onGoogle={setGoogle} escapeRef={escapeRef} />}
     </div>
   );
 }
