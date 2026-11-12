@@ -1,6 +1,6 @@
 // Takes jobs from Data Center Site Selection (only the origins in manifest.json can connect) and runs them in a
 // Podium window, where driver.js uses the user's own Podium sign-in. Results go back over the same port.
-const PODIUM = "https://podium.app-dev.podium.io";
+const PODIUM = "https://esri.app-std.podium.io";
 const jobs = new Map();
 let bridgeWindowId = null;
 

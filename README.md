@@ -102,7 +102,7 @@ The `design/` folder holds the original design concept.
 
 ## The Podium bridge
 
-**Why it's needed.** Podium has no public API for creating projects or running its data center generator, and its server only answers requests from Podium's own pages, so a web app like this one can't talk to Podium directly. The ArcGIS Podium Bridge is a small Chrome and Edge extension (`podium-bridge/`) that does the Podium steps in a Podium window, signed in as you, the way you would by hand, and hands the designs and Podium's 3D models back to the app. Without it, the hand-off is copy and paste. It can only open Podium (`podium.app-dev.podium.io`), and only this app (the live site and `localhost:5190`) can send it jobs.
+**Why it's needed.** Podium has no public API for creating projects or running its data center generator, and its server only answers requests from Podium's own pages, so a web app like this one can't talk to Podium directly. The ArcGIS Podium Bridge is a small Chrome and Edge extension (`podium-bridge/`) that does the Podium steps in a Podium window, signed in as you, the way you would by hand, and hands the designs and Podium's 3D models back to the app. Without it, the hand-off is copy and paste. It can only open Podium (`esri.app-std.podium.io`), and only this app (the live site and `localhost:5190`) can send it jobs.
 
 **Download and install.**
 
@@ -111,7 +111,7 @@ The `design/` folder holds the original design concept.
 3. Press **Load unpacked** and choose the unzipped `podium-bridge` folder. **ArcGIS Podium Bridge** appears in the list.
 4. Sign in to Podium in the same browser, then reload the app. The scenario tray shows **Podium: bridge connected**.
 
-To update, download the zip again, replace the folder's contents, and press the reload button on the extension's card in `chrome://extensions`. Working from a clone of this repository, you can load its `podium-bridge` folder directly; `npm run pack:bridge` rebuilds the zip.
+To update, download the zip again, replace the folder's contents, and press the reload button on the extension's card in `chrome://extensions`. Version 0.1.0 opens Podium's old address (`podium.app-dev.podium.io`), which no longer works, so update it to 0.2.0 or later. Working from a clone of this repository, you can load its `podium-bridge` folder directly; `npm run pack:bridge` rebuilds the zip.
 
 **Use.** Open a scenario's brief, press **Review brief →**, then **Design in Podium**. The bridge:
 
@@ -135,7 +135,7 @@ The brief lists each step as it happens, and the 3D review opens once everything
 **Keep in mind.**
 
 - It uses Podium's own internal web requests and page, which aren't a published API. A Podium update can break it; the brief then shows which step failed, and the copy-and-paste way still works.
-- It works in the Podium development environment (`podium.app-dev.podium.io`) that the app links to.
+- It works in the Podium environment at `esri.app-std.podium.io` that the app links to.
 - It creates real projects and scenarios under your Podium account. Exporting the 3D model also saves a copy in the Podium project's files.
 - Keep the Podium window visible until the 3D review opens. Podium pauses in a hidden tab, a minimised window or one covered by another window, and the brief asks you to bring it back.
 - Podium's 3D model of a design larger than 40 MB isn't sent back; export it in Podium and import it in **Review in 3D**.

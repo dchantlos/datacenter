@@ -6,7 +6,7 @@
   if (window.__dcssBridgeDriver) return;
 
   const env = window._env_ ?? window.env ?? window.__ENV__ ?? {};
-  const API = String(env.REACT_APP_PODIUM_BASE_API || "https://app-dev.podium.io").replace(/\/+$/, "");
+  const API = String(env.REACT_APP_PODIUM_BASE_API || "https://app-std.podium.io").replace(/\/+$/, "");
   const TENANT = env.REACT_TENANT_CODE || "";
   const DC_POLICY = "Podium Default - Data Centre";
   const CONFIG_TEMPLATE = "Podium Default";

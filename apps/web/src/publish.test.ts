@@ -9,8 +9,8 @@ const design: PublishedDesign = {
   buildings: 6,
   itMW: 160,
   heightM: 31,
-  projectUrl: "https://podium.app-dev.podium.io/overview?project=p1",
-  scenarioUrl: "https://podium.app-dev.podium.io/scenario/viewer/design?project=p1&scenario=s2",
+  projectUrl: "https://esri.app-std.podium.io/overview?project=p1",
+  scenarioUrl: "https://esri.app-std.podium.io/scenario/viewer/design?project=p1&scenario=s2",
   published: 1_761_000_000_000,
 };
 
