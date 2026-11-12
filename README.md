@@ -136,6 +136,7 @@ The brief lists each step as it happens, and the 3D review opens once everything
 
 - It uses Podium's own internal web requests and page, which aren't a published API. A Podium update can break it; the brief then shows which step failed, and the copy-and-paste way still works.
 - It works in the Podium environment at `esri.app-std.podium.io` that the app links to.
+- Podium's data centre generator is in PODII's **Scenario Generation**, which Podium switches on per organization. Where PODII doesn't list it (Esri's organization on `esri.app-std.podium.io`, as of November 2026), the bridge stops at that step and says so; ask Podium to turn it on, then press **Design in Podium** again to carry on in the same project.
 - It creates real projects and scenarios under your Podium account. Exporting the 3D model also saves a copy in the Podium project's files.
 - Keep the Podium window visible until the 3D review opens. Podium pauses in a hidden tab, a minimised window or one covered by another window, and the brief asks you to bring it back.
 - Podium's 3D model of a design larger than 40 MB isn't sent back; export it in Podium and import it in **Review in 3D**.

@@ -388,6 +388,8 @@
 
   const panel = () => [...document.querySelectorAll('[data-slot="popover-content"]')].find(visible);
   const podiiButton = () => [...document.querySelectorAll('button[data-slot="popover-trigger"]')].find((b) => visible(b) && /pointer-events-auto rounded w-8 h-8/.test(b.className));
+  // The features PODII's home screen lists. Podium leaves out the ones switched off for the user's organization.
+  const podiiFeatures = (p) => (p && find("*", /^Let's build something great today/, p) ? [...p.querySelectorAll("button[aria-disabled]")].filter(visible).map(textOf).filter(Boolean) : []);
 
   function inputFor(root, label) {
     const caption = find("label, span, div, p", label, root);
@@ -422,12 +424,17 @@
       el.click();
       acted = Date.now();
     };
-    const generateButton = await waitOrAsk(
+    let missingSince = 0;
+    const found = await waitOrAsk(
       () => {
         const p = panel();
         const button = p && find("button", /^Generate( Again)?$/, p);
-        if (button) return button;
+        if (button) return { button };
         if (Date.now() - acted < 2000) return null;
+        const features = podiiFeatures(p);
+        const missing = features.length > 0 && !features.some((f) => /^Scenario Generation/.test(f));
+        missingSince = missing ? missingSince || Date.now() : 0;
+        if (missing && Date.now() - missingSince > 5000) return { unavailable: true };
         const dialog = [...document.querySelectorAll('[role="alertdialog"], [role="dialog"]')].find((d) => visible(d) && /Are you sure you want to continue/.test(textOf(d)));
         const proceed = dialog && find("button", "Continue", dialog);
         if (proceed) act(proceed);
@@ -440,6 +447,12 @@
       "generate",
       "Open PODII (bottom left), then Scenario Generation, then Data Centre",
     );
+    if (found.unavailable) {
+      throw new Error(
+        "PODII doesn't offer Scenario Generation for your Podium organization, and the bridge needs its data centre generator. Ask Podium to turn Scenario Generation on for your organization, then press Design in Podium again to carry on in this project.",
+      );
+    }
+    const generateButton = found.button;
     await sleep(2000);
     fillForm(panel(), { "Target IT Capacity": it, "Max Allowable Height": j.brief.maxHeightM, "Number of Solutions (1-10)": j.brief.options });
     await sleep(500);
