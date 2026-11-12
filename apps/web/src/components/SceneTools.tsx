@@ -15,7 +15,7 @@ import type DirectLineMeasurementAnalysisView3D from "@arcgis/core/views/3d/anal
 import type LineOfSightAnalysisView3D from "@arcgis/core/views/3d/analysis/LineOfSightAnalysisView3D.js";
 import type ViewshedAnalysisView3D from "@arcgis/core/views/3d/analysis/ViewshedAnalysisView3D.js";
 import type VolumeMeasurementAnalysisView3D from "@arcgis/core/views/3d/analysis/VolumeMeasurementAnalysisView3D.js";
-import { BASEMAPS, BASEMAP_KEY, DEFAULT_SUN_HOUR, SUN_DAYS, contextBuildings, formatArea, formatLength, formatVolume, storedBasemap, sunDate, thumbnail, type BasemapId, type SunDay } from "../scene3d";
+import { BASEMAPS, BASEMAP_KEY, DEFAULT_SUN_HOUR, SUN_DAYS, contextBuildings, formatArea, formatLength, formatVolume, startBasemap, storedBasemap, sunDate, thumbnail, type BasemapId, type SunDay } from "../scene3d";
 
 type Tool = "distance" | "area" | "sight" | "viewshed" | "cutfill" | "sun";
 type Placed = DirectLineMeasurementAnalysis | AreaMeasurementAnalysis | LineOfSightAnalysis | ViewshedAnalysis | VolumeMeasurementAnalysis;
@@ -90,18 +90,21 @@ interface Props {
   /** The parcel, in WGS84. */
   site: Polygon;
   onZoomToDesign: () => void;
+  /** Says whether Google 3D, with its own terrain, is the basemap. */
+  onGoogle: (on: boolean) => void;
   /** Gets a function for Esc: it finishes or closes the open tool and says whether there was one, before Esc closes the review. */
   escapeRef: RefObject<(() => boolean) | null>;
 }
 
 /** Map context and interactive analysis for the 3D review: basemaps, 3D buildings, measurements, sight, earthworks and sun. */
-export default function SceneTools({ view, site, onZoomToDesign, escapeRef }: Props) {
+export default function SceneTools({ view, site, onZoomToDesign, onGoogle, escapeRef }: Props) {
   const [tool, setTool] = useState<Tool | null>(null);
   const [placing, setPlacing] = useState(false);
   const [lines, setLines] = useState<string[]>([]);
   const [placed, setPlaced] = useState(0);
   const [basemapOpen, setBasemapOpen] = useState(false);
-  const [basemap, setBasemap] = useState<BasemapId>(storedBasemap);
+  const [basemap, setBasemap] = useState<BasemapId>(startBasemap);
+  const [basemapNote, setBasemapNote] = useState<string | null>(null);
   const [buildingsOn, setBuildingsOn] = useState(() => localStorage.getItem(BUILDINGS_KEY) !== "off");
   const [day, setDay] = useState<SunDay>(SUN_DAYS[0]);
   const [hour, setHour] = useState(DEFAULT_SUN_HOUR);
@@ -111,16 +114,26 @@ export default function SceneTools({ view, site, onZoomToDesign, escapeRef }: Pr
   // The latest tool request; an older one still waiting gives up.
   const runRef = useRef({ id: 0, done: Promise.resolve() });
   const basemaps = useRef(new Map<BasemapId, Basemap>());
+  // The basemap last asked for, so a slow sign-in doesn't override a later choice.
+  const wantedRef = useRef<BasemapId>(basemap);
   const buildings = useMemo(() => contextBuildings(site), [site]);
   const shadow = useMemo(() => new ShadowCastAnalysis({ mode: "total-duration", startTimeOfDay: SHADOW_HOURS[0] * 3_600_000, endTimeOfDay: SHADOW_HOURS[1] * 3_600_000 }), []);
   const center = site.extent?.center;
+  const google = basemap === "google";
 
+  // Google's mesh has the existing buildings already.
   useEffect(() => {
     const layers = view.map?.layers;
     if (!layers) return;
-    if (buildingsOn) layers.add(buildings, 0);
+    if (buildingsOn && !google) layers.add(buildings, 0);
     else layers.remove(buildings);
-  }, [view, buildings, buildingsOn]);
+  }, [view, buildings, buildingsOn, google]);
+
+  useEffect(() => onGoogle(google), [google]);
+
+  useEffect(() => {
+    if (storedBasemap() === "google") void chooseBasemap("google", true);
+  }, []);
 
   useEffect(() => {
     view.environment.lighting = { type: "sun", date: sunDate(day, hour), directShadowsEnabled: true, cameraTrackingEnabled: false };
@@ -221,19 +234,51 @@ export default function SceneTools({ view, site, onZoomToDesign, escapeRef }: Pr
       setPlaced(0);
     });
 
-  const chooseBasemap = (id: BasemapId) => {
-    const choice = BASEMAPS.find((b) => b.id === id);
-    if (!choice || !view.map || id === basemap) return;
+  const show = (id: BasemapId, next: Basemap) => {
+    if (!view.map || wantedRef.current !== id) return;
     if (view.map.basemap) basemaps.current.set(basemap, view.map.basemap);
-    let next = basemaps.current.get(id);
-    if (!next) {
-      next = choice.make();
-      basemaps.current.set(id, next);
-    }
     view.map.basemap = next;
     setBasemap(id);
     localStorage.setItem(BASEMAP_KEY, id);
   };
+
+  /** Google 3D comes through the user's ArcGIS Online organization. Quietly, it only uses a sign-in from earlier in this tab. */
+  const loadGoogle = async (quiet: boolean) => {
+    let api: typeof import("../arcgisOnline");
+    try {
+      api = await import("../arcgisOnline");
+    } catch (error) {
+      if (!quiet) setBasemapNote(`Couldn't load the ArcGIS sign-in: ${error instanceof Error ? error.message : String(error)}.`);
+      return null;
+    }
+    const appId = api.storedAppId();
+    if (!appId) {
+      if (!quiet) setBasemapNote("Google 3D comes through ArcGIS Online. Add the app's ArcGIS client ID under Publish to ArcGIS Online first.");
+      return null;
+    }
+    if (!quiet) setBasemapNote("Signing in to ArcGIS Online and loading Google 3D…");
+    try {
+      const session = (await api.restoreSignIn(appId)) ?? (quiet ? null : await api.signIn(appId));
+      if (!session) return null;
+      const next = await api.googleBasemap();
+      setBasemapNote(null);
+      return next;
+    } catch (error) {
+      setBasemapNote(quiet ? null : api.googleProblem(error));
+      return null;
+    }
+  };
+
+  async function chooseBasemap(id: BasemapId, quiet = false) {
+    const choice = BASEMAPS.find((b) => b.id === id);
+    if (!choice || !view.map || id === basemap) return;
+    wantedRef.current = id;
+    setBasemapNote(null);
+    const next = basemaps.current.get(id) ?? choice.make?.() ?? (await loadGoogle(quiet));
+    if (!next) return;
+    basemaps.current.set(id, next);
+    show(id, next);
+  }
 
   const toggleBuildings = () => {
     localStorage.setItem(BUILDINGS_KEY, buildingsOn ? "off" : "on");
@@ -257,7 +302,15 @@ export default function SceneTools({ view, site, onZoomToDesign, escapeRef }: Pr
         >
           <calcite-icon icon="basemap" scale="s" />
         </button>
-        <button type="button" className={`tool-btn${buildingsOn ? " is-on" : ""}`} aria-pressed={buildingsOn} title="3D buildings around the site" aria-label="3D buildings" onClick={toggleBuildings}>
+        <button
+          type="button"
+          className={`tool-btn${buildingsOn && !google ? " is-on" : ""}`}
+          aria-pressed={buildingsOn && !google}
+          disabled={google}
+          title={google ? "Google 3D shows the existing buildings" : "3D buildings around the site"}
+          aria-label="3D buildings"
+          onClick={toggleBuildings}
+        >
           <calcite-icon icon="i3DBuilding" scale="s" />
         </button>
         <button type="button" className="tool-btn" title="Zoom to the design" aria-label="Zoom to the design" onClick={onZoomToDesign}>
@@ -285,12 +338,24 @@ export default function SceneTools({ view, site, onZoomToDesign, escapeRef }: Pr
           </div>
           <div className="bm-grid">
             {BASEMAPS.map((b) => (
-              <button key={b.id} type="button" className={`bm-tile${basemap === b.id ? " is-on" : ""}`} aria-pressed={basemap === b.id} onClick={() => chooseBasemap(b.id)}>
+              <button
+                key={b.id}
+                type="button"
+                className={`bm-tile${basemap === b.id ? " is-on" : ""}`}
+                aria-pressed={basemap === b.id}
+                title={b.make ? undefined : "Google Photorealistic 3D, through your ArcGIS Online organization"}
+                onClick={() => void chooseBasemap(b.id)}
+              >
                 <span className="bm-tile__img" style={center ? { backgroundImage: thumbnail(b, center.x, center.y) } : undefined} />
                 <span>{b.label}</span>
               </button>
             ))}
           </div>
+          {basemapNote && (
+            <p className="muted" aria-live="polite">
+              {basemapNote}
+            </p>
+          )}
         </div>
       )}
 

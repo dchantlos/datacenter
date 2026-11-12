@@ -8,7 +8,10 @@ import Point from "@arcgis/core/geometry/Point.js";
 import Polygon from "@arcgis/core/geometry/Polygon.js";
 import SpatialReference from "@arcgis/core/geometry/SpatialReference.js";
 import * as projectOperator from "@arcgis/core/geometry/operators/projectOperator.js";
+import type Ground from "@arcgis/core/Ground.js";
 import GraphicsLayer from "@arcgis/core/layers/GraphicsLayer.js";
+import SceneModification from "@arcgis/core/layers/support/SceneModification.js";
+import SceneModifications from "@arcgis/core/layers/support/SceneModifications.js";
 import ExtrudeSymbol3DLayer from "@arcgis/core/symbols/ExtrudeSymbol3DLayer.js";
 import FillSymbol3DLayer from "@arcgis/core/symbols/FillSymbol3DLayer.js";
 import MeshSymbol3D from "@arcgis/core/symbols/MeshSymbol3D.js";
@@ -23,7 +26,7 @@ import { contains, type Position } from "../geojson";
 import { parseGlb, podiumFrame, splitBuildings, type PodiumFrame } from "../podiumGlb";
 import { designFromModel, designTotals, matchOutline, type DesignBuilding, type SectionKind } from "../podiumModel";
 import { podiumBoundary, type Scenario } from "../scenarios";
-import { makeBasemap, money, number, storedBasemap } from "../scene3d";
+import { makeBasemap, money, number, startBasemap } from "../scene3d";
 import type { PodiumDesignRecord, PodiumOption } from "../store";
 import DesignSwitcher from "./DesignSwitcher";
 import PublishPanel from "./PublishPanel";
@@ -89,14 +92,34 @@ async function toWgs84(json: object) {
 }
 
 /** Podium designs on a flat site, so each building sits at the mean ground level of its footprint corners and centre. */
-async function groundLevels(view: SceneView, buildings: Footprint[], frame: PodiumFrame) {
-  const ground = view.map?.ground;
+async function groundLevels(ground: Ground | null | undefined, buildings: Footprint[], frame: PodiumFrame) {
   if (!ground) throw new Error("the 3D view has no terrain");
   const samples = (b: Footprint): Position[] => [b.center, b.min, b.max, [b.min[0], b.max[1]], [b.max[0], b.min[1]]];
   const points = buildings.flatMap((b) => samples(b).map(frame.toLonLat));
   const { geometry } = await ground.queryElevation(new Multipoint({ points, spatialReference: SpatialReference.WGS84 }), { demResolution: "finest-contiguous" });
   const z = geometry.points.map((p) => p[2] ?? 0);
   return buildings.map((_, i) => z.slice(i * 5, i * 5 + 5).reduce((sum, v) => sum + v, 0) / 5);
+}
+
+// Published designs stand on Esri's terrain, whatever the basemap, as ArcGIS shows them on it.
+let esriTerrain: Ground | null = null;
+const terrain = () => (esriTerrain ??= new EsriMap({ ground: "world-elevation" }).ground);
+
+/** Google's mesh, flattened to a pad at each building's ground level, so what stands there today doesn't show through. */
+function pads(buildings: Footprint[], ground: number[], frame: PodiumFrame) {
+  const margin = 2;
+  return new SceneModifications(
+    buildings.map(({ min: [x0, y0], max: [x1, y1] }, i) => {
+      const corners: Position[] = [
+        [x0 - margin, y0 - margin],
+        [x0 - margin, y1 + margin],
+        [x1 + margin, y1 + margin],
+        [x1 + margin, y0 - margin],
+      ];
+      const ring = clockwise(corners.map(frame.toLonLat)).map(([lon, lat]) => [lon, lat, ground[i]]);
+      return new SceneModification({ type: "replace", geometry: new Polygon({ hasZ: true, spatialReference: SpatialReference.WGS84, rings: [ring] }) });
+    }),
+  );
 }
 
 /** Podium designs in a frame centred on the outline it was given: the buildable area now, the whole parcel before. */
@@ -157,6 +180,8 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
     return options[0] ? { kind: "option", id: options[0].id } : file ? { kind: "file", ...file } : null;
   });
   const [preferModel, setPreferModel] = useState(true);
+  // Google 3D replaces the terrain, so the design is set on its mesh instead.
+  const [google, setGoogle] = useState(false);
 
   const option: PodiumOption | null = source?.kind === "option" ? (options.find((o) => o.id === source.id) ?? null) : null;
   const parsed = useMemo(() => (option ? designFromModel(option.model) : null), [option?.model]);
@@ -179,7 +204,7 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
     eggRef.current = egg;
     const sceneView = new SceneView({
       container,
-      map: new EsriMap({ basemap: makeBasemap(storedBasemap()), ground: "world-elevation", layers: [site, designLayer, egg] }),
+      map: new EsriMap({ basemap: makeBasemap(startBasemap()), ground: "world-elevation", layers: [site, designLayer, egg] }),
       // A clear sky. The clouds over this site are in the imagery itself, which weather settings can't remove.
       environment: { weather: { type: "sunny", cloudCover: 0 } },
       ui: { components: [] },
@@ -250,10 +275,17 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
           );
       }
       setStatus({ kind: "working", text: `Setting ${footprints.length} buildings on the ground…` });
-      const ground = await groundLevels(view, footprints, frame);
+      const mesh = google ? (view.map?.basemap?.groundLayers.at(0) ?? null) : null;
+      if (mesh) {
+        // Measure Google's own surface: last design's pads off, and its layer view up to answer elevation queries.
+        mesh.modifications = null;
+        await view.whenLayerView(mesh);
+      }
+      const ground = await groundLevels(view.map?.ground, footprints, frame);
       if (!alive) return;
       layer.removeAll();
       layer.addMany(graphics(ground));
+      if (mesh) mesh.modifications = pads(footprints, ground, frame);
       const south = footprints.reduce((best, f, i) => (f.min[1] < footprints[best].min[1] ? i : best), 0);
       const [x, y] = [footprints[south].center[0], footprints[south].min[1] - MONKEY_GAP_M];
       setSpot({ at: frame.toLonLat([x, y]), eye: frame.toLonLat([x, y - MONKEY_VIEW.distance]), ground: ground[south] });
@@ -275,7 +307,7 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
     return () => {
       alive = false;
     };
-  }, [view, source, option, parsed, drawModel, scenario]);
+  }, [view, source, option, parsed, drawModel, scenario, google]);
 
   useEffect(() => {
     const egg = eggRef.current;
@@ -306,7 +338,7 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
     const { frame } = await designFrame(scenario, designFromModel(o.model).siteBoundary);
     const buildings = splitBuildings(parseGlb(o.glb));
     if (!buildings.length) throw new Error(`Podium's 3D model of ${o.name} has no building geometry`);
-    const mesh = designMesh(buildings, frame, await groundLevels(view, buildings, frame));
+    const mesh = designMesh(buildings, frame, await groundLevels(terrain(), buildings, frame));
     if (!mesh) throw new Error(`couldn't combine the buildings of ${o.name} into one 3D object`);
     return mesh;
   };
@@ -491,7 +523,7 @@ export default function Review3D({ scenario, design, running, onClose }: Review3
       </aside>
 
       {options.length > 0 && <DesignSwitcher options={options} selectedId={source?.kind === "option" ? source.id : null} onSelect={(id) => setSource({ kind: "option", id })} />}
-      {view && parcel && <SceneTools view={view} site={parcel} onZoomToDesign={zoomToDesign} escapeRef={escapeRef} />}
+      {view && parcel && <SceneTools view={view} site={parcel} onZoomToDesign={zoomToDesign} onGoogle={setGoogle} escapeRef={escapeRef} />}
     </div>
   );
 }

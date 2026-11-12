@@ -33,7 +33,7 @@ It is the first half of a larger workflow: ArcGIS finds and explains the best la
 5. **Run the analysis.** Every candidate parcel in the area is checked, slope is measured with USGS 3DEP, and the parcels that pass are ranked. Changing rules or weights afterwards re-ranks the results without a new run.
 6. **Shortlist and brief.** Shortlist sites and create a scenario: a design brief with the site boundary, the buildable area after a setback, no-build areas, ground elevation and the data sources used. Review it, approve it and download it as JSON.
 7. **Design in Podium.** With the [ArcGIS Podium Bridge](#the-podium-bridge) browser extension, one button creates the Podium project, gives it the buildable area (the parcel less its setback and no-build areas) as the site, runs Podium's data center generator with the brief's numbers, saves the options as scenarios and brings them back. Without it, copy the same outline into Podium by hand.
-8. **Review Podium's designs in 3D.** Each design is placed where Podium put it, on the real parcel and terrain, as Podium's own 3D model or as outlines, with Podium's figures. Cards along the bottom switch between designs from the same viewpoint. The view shows the existing 3D buildings around the site and offers a choice of basemaps, and its tools measure distance and area, check line of sight and viewsheds, work out cut and fill for a level pad, and show sun and shadows for any time of day. A GLB exported from Podium can also be imported by hand.
+8. **Review Podium's designs in 3D.** Each design is placed where Podium put it, on the real parcel and terrain, as Podium's own 3D model or as outlines, with Podium's figures. Cards along the bottom switch between designs from the same viewpoint. The view shows the existing 3D buildings around the site and offers a choice of basemaps, including [Google Photorealistic 3D](#google-photorealistic-3d-in-the-3d-review), and its tools measure distance and area, check line of sight and viewsheds, work out cut and fill for a level pad, and show sun and shadows for any time of day. A GLB exported from Podium can also be imported by hand.
 9. **Publish to ArcGIS Online.** Sign in to your ArcGIS organization and add the chosen design to a 3D object layer, as one 3D object whose attributes link back to its Podium project and scenario. See [Publish designs to ArcGIS Online](#publish-designs-to-arcgis-online).
 
 An in-app guide walks through each step.
@@ -45,7 +45,7 @@ An in-app guide walks through each step.
 | Live preview, area, data check, criteria, ranking | Built |
 | Shortlist, scenarios and design brief (JSON download) | Built |
 | Send the approved brief to Podium | Built with the ArcGIS Podium Bridge extension (Chrome and Edge). Without it, by hand: copy the boundary into Podium's Coordinate Entry and type the brief's numbers into its data center generator |
-| Review returned designs in 3D | Built: designs come back through the bridge, or import the 3D model (GLB) exported from Podium; each building is placed on the parcel and set on the terrain, among the existing 3D buildings, with measurement, sight, cut and fill, and sun tools |
+| Review returned designs in 3D | Built: designs come back through the bridge, or import the 3D model (GLB) exported from Podium; each building is placed on the parcel and set on the terrain, among the existing 3D buildings or on Google's photorealistic 3D mesh, with measurement, sight, cut and fill, and sun tools |
 | Publish designs to ArcGIS Online | Built: a design becomes a 3D object in your organization's 3D object layer, linked back to its Podium project |
 
 ## Data sources
@@ -75,15 +75,15 @@ All sources are public and queried live. Most layers come from the public ArcGIS
 
 The copies exist because the original servers are often down. The pill at the top right of the app checks all of these sources live.
 
-The 3D review also shows, for display only: Esri World Imagery, including its Wayback release of 30 January 2025 (the current release has clouds over the Tahoe-Reno Industrial Center); Esri's topographic, street and dark gray basemaps; World Elevation; and Esri 3D Buildings.
+The 3D review also shows, for display only: Esri World Imagery, including its Wayback release of 30 January 2025 (the current release has clouds over the Tahoe-Reno Industrial Center); Esri's topographic, street and dark gray basemaps; World Elevation; Esri 3D Buildings; and, after an ArcGIS Online sign-in, Google Photorealistic 3D.
 
 Owner names and mailing addresses on the parcel records are never requested or shown.
 
 ## How it works
 
-- **Browser only.** No server, no sign-in and no API key. The app talks directly to the public services above, and to Podium only through the optional bridge extension.
+- **Browser only.** No server, and no sign-in or API key except to publish to ArcGIS Online or use Google 3D. The app talks directly to the public services above, and to Podium only through the optional bridge extension.
 - **Saved in your browser.** Runs, the shortlist, scenarios and the designs back from Podium are stored in your own browser (IndexedDB). They are not shared between people or devices.
-- **Stack.** React 19, Vite, TypeScript, ArcGIS Maps SDK for JavaScript 5.1 (core and map components) and Calcite.
+- **Stack.** React 19, Vite, TypeScript, ArcGIS Maps SDK for JavaScript 5.2 (core and map components) and Calcite.
 - **Rules engine.** `apps/web/src/criteria.ts` holds the exclusions, thresholds and scoring as plain TypeScript with unit tests, so results can be checked outside the map.
 
 | File (in `apps/web/src`) | What it does |
@@ -162,6 +162,17 @@ Publishing replaces what the app published for the same parcel before, so a parc
 2. Create an empty 3D object layer: **Content**, **New item**, **Scene layer**, **3D object**. The app adds the fields above the first time it publishes, which needs you to own the layer.
 
 The layer shows new designs straight away. After many uploads, rebuild its cache in ArcGIS Online (the layer's **Settings**, **Rebuild cache**), which uses credits. `VITE_ARCGIS_PORTAL_URL` points the app at your organization's URL (for example `https://<org>.maps.arcgis.com`, which also offers its single sign-on) or an ArcGIS Enterprise portal, and `VITE_ARCGIS_LAYER_ID` picks the layer to publish to by default.
+
+## Google Photorealistic 3D in the 3D review
+
+**Basemap**, **Google 3D** in **Review in 3D** shows the site on Esri's Google Photorealistic 3D basemap (preview). It signs in to ArcGIS Online the same way publishing does (set up the client ID once, as above), and the organization supplies the Google key. Google's mesh replaces the terrain and imagery and already shows today's buildings, so Esri's 3D buildings go off. The design is set on Google's surface, which is flattened to a pad under each building so what stands there today doesn't show through. Publishing still sets designs on Esri's terrain.
+
+An administrator of the organization turns it on once, in **Organization**, **Settings**, **Map and scene**, **Google Photorealistic 3D basemap**:
+
+1. **Allow members to use Google Photorealistic 3D basemap**.
+2. **Allow use in ArcGIS Enterprise and custom applications**, then **Add allowed referrers**: `http://localhost:5190/` and `https://dchantlos.github.io/`. Without this, the app says ArcGIS Online didn't give it access.
+
+Usage counts as sessions for the organization (up to 20,000 during the preview); a session lasts up to three hours.
 
 ## Run it locally
 

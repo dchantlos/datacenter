@@ -1,3 +1,4 @@
+import Basemap from "@arcgis/core/Basemap.js";
 import Graphic from "@arcgis/core/Graphic.js";
 import type Mesh from "@arcgis/core/geometry/Mesh.js";
 import esriId from "@arcgis/core/identity/IdentityManager.js";
@@ -16,6 +17,29 @@ const SHARING = `${PORTAL_URL}/sharing`;
 const APP_ID_KEY = "dcss.arcgis.appId";
 const ENV_APP_ID = (import.meta.env.VITE_ARCGIS_APP_ID as string | undefined)?.trim() || null;
 const ENV_LAYER_ID = (import.meta.env.VITE_ARCGIS_LAYER_ID as string | undefined)?.trim() || null;
+// Esri's Google Photorealistic 3D basemap (preview): Google's 3D mesh, with its own terrain.
+const GOOGLE_3D_ITEM = "a9a6b04a8d1a46999ca7eae087388d54";
+
+// The SDK's errors aren't Error instances, but carry a name and a message.
+const fieldOf = (error: unknown, key: "name" | "message") => (error && typeof error === "object" && key in error ? String((error as Record<string, unknown>)[key]) : "");
+const messageOf = (error: unknown) => fieldOf(error, "message") || String(error);
+
+export function signInProblem(error: unknown) {
+  const name = fieldOf(error, "name");
+  if (name === "identity-manager:user-aborted" || name === "identity-manager:aborted") return "Sign-in was cancelled.";
+  if (name === "identity-manager:popup-blocked") return "The browser blocked the sign-in window. Allow pop-ups for this site, then try again.";
+  return `Didn't sign in: ${messageOf(error)}.`;
+}
+
+export function googleProblem(error: unknown) {
+  const name = fieldOf(error, "name");
+  if (name.endsWith("g3dTilesEnabled-false")) return "Your ArcGIS organization hasn't turned on the Google Photorealistic 3D basemap. An administrator can, in the organization's settings under Map and scene.";
+  // Outside Esri's own apps, the organization has to list the app as an allowed referrer, or there's no key and Google refuses.
+  if (name.endsWith("g3dtiles-key-error") || name.endsWith("root-load-failed"))
+    return `ArcGIS Online didn't give this app access to Google 3D. An administrator can allow it in the organization's settings under Map and scene: turn on Allow use in ArcGIS Enterprise and custom applications, and add ${window.location.origin}/ to the allowed referrers.`;
+  if (name.startsWith("identity-manager:")) return signInProblem(error);
+  return `Couldn't load Google 3D: ${messageOf(error)}.`;
+}
 
 export const appIdFromEnv = () => ENV_APP_ID;
 export const layerIdFromEnv = () => ENV_LAYER_ID;
@@ -69,6 +93,14 @@ export async function signIn(appId: string): Promise<Session> {
 }
 
 export const signOut = () => esriId.destroyCredentials();
+
+/** Google's 3D basemap. The signed-in organization supplies the Google key, so this fails where it hasn't turned the basemap on. */
+export async function googleBasemap() {
+  const basemap = new Basemap({ portalItem: { id: GOOGLE_3D_ITEM, portal: new Portal({ url: PORTAL_URL }) } });
+  await basemap.load();
+  await Promise.all(basemap.groundLayers.toArray().map((layer) => layer.load()));
+  return basemap;
+}
 
 /** The signed-in user's 3D object layers, newest first, plus any of `also` that search doesn't list yet. */
 export async function objectLayers(s: Session, also: (string | null)[] = []): Promise<ObjectLayer[]> {

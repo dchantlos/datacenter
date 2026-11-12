@@ -15,13 +15,6 @@ const CLIENT_ID = /^[A-Za-z0-9_-]{8,64}$/;
 const fieldOf = (error: unknown, key: "name" | "message") => (error && typeof error === "object" && key in error ? String((error as Record<string, unknown>)[key]) : "");
 const messageOf = (error: unknown) => fieldOf(error, "message") || String(error);
 
-function signInProblem(error: unknown) {
-  const name = fieldOf(error, "name");
-  if (name === "identity-manager:user-aborted" || name === "identity-manager:aborted") return "Sign-in was cancelled.";
-  if (name === "identity-manager:popup-blocked") return "The browser blocked the sign-in window. Allow pop-ups for this site, then try again.";
-  return `Didn't sign in: ${messageOf(error)}.`;
-}
-
 type State =
   | { kind: "idle" }
   | { kind: "working"; text: string }
@@ -64,7 +57,7 @@ export default function PublishPanel(props: Props) {
 }
 
 function Publisher({ api, scenario, options, option, projectUrl, makeMesh }: Props & { api: Api }) {
-  const { CALLBACK_URL, addDesign, appIdFromEnv, earlierDesigns, itemPageUrl, layerIdFromEnv, newItemUrl, objectLayers, openLayer, removeDesigns, restoreSignIn, saveAppId, signIn, signOut, storedAppId } = api;
+  const { CALLBACK_URL, addDesign, appIdFromEnv, earlierDesigns, itemPageUrl, layerIdFromEnv, newItemUrl, objectLayers, openLayer, removeDesigns, restoreSignIn, saveAppId, signIn, signInProblem, signOut, storedAppId } = api;
   const [appId, setAppId] = useState(storedAppId);
   const [draftId, setDraftId] = useState("");
   const [session, setSession] = useState<Session | null>(null);

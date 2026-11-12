@@ -14,22 +14,24 @@ const SERVICES = "https://services.arcgisonline.com/arcgis/rest/services";
 const CLEAR_IMAGERY = "https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tile/36557";
 const BUILDINGS_URL = "https://basemaps3d.arcgis.com/arcgis/rest/services/Esri3D_Buildings_v1/SceneServer";
 
-export type BasemapId = "clear" | "latest" | "hybrid" | "topo" | "streets" | "dark";
+export type BasemapId = "clear" | "latest" | "hybrid" | "topo" | "streets" | "dark" | "google";
 
 export interface BasemapChoice {
   id: BasemapId;
   label: string;
   /** Tile URL templates ({z}/{y}/{x}) for the thumbnail, top layer first. */
   tiles: string[];
-  make: () => Basemap;
+  /** Null for Google 3D, which comes through an ArcGIS Online sign-in (arcgisOnline.ts). */
+  make: (() => Basemap) | null;
 }
 
 const tiles = (path: string) => `${SERVICES}/${path}/MapServer/tile/{z}/{y}/{x}`;
 const tiled = (path: string) => new TileLayer({ url: `${SERVICES}/${path}/MapServer` });
 const clearImagery = () => new WebTileLayer({ urlTemplate: `${CLEAR_IMAGERY}/{level}/{row}/{col}`, copyright: "Esri World Imagery Wayback, 30 Jan 2025" });
+const clear = () => new Basemap({ baseLayers: [clearImagery()] });
 
 export const BASEMAPS: BasemapChoice[] = [
-  { id: "clear", label: "Imagery, Jan 2025", tiles: [`${CLEAR_IMAGERY}/{z}/{y}/{x}`], make: () => new Basemap({ baseLayers: [clearImagery()] }) },
+  { id: "clear", label: "Imagery, Jan 2025", tiles: [`${CLEAR_IMAGERY}/{z}/{y}/{x}`], make: clear },
   { id: "latest", label: "Imagery, latest", tiles: [tiles("World_Imagery")], make: () => new Basemap({ baseLayers: [tiled("World_Imagery")] }) },
   {
     id: "hybrid",
@@ -45,6 +47,8 @@ export const BASEMAPS: BasemapChoice[] = [
     tiles: [tiles("Canvas/World_Dark_Gray_Reference"), tiles("Canvas/World_Dark_Gray_Base")],
     make: () => new Basemap({ baseLayers: [tiled("Canvas/World_Dark_Gray_Base")], referenceLayers: [tiled("Canvas/World_Dark_Gray_Reference")] }),
   },
+  // Google Photorealistic 3D: the thumbnail is imagery.
+  { id: "google", label: "Google 3D", tiles: [`${CLEAR_IMAGERY}/{z}/{y}/{x}`], make: null },
 ];
 
 export const BASEMAP_KEY = "dcss.review3d.basemap";
@@ -54,7 +58,13 @@ export function storedBasemap(): BasemapId {
   return BASEMAPS.find((b) => b.id === id)?.id ?? "clear";
 }
 
-export const makeBasemap = (id: BasemapId) => (BASEMAPS.find((b) => b.id === id) ?? BASEMAPS[0]).make();
+/** The basemap the 3D review opens with: the stored one, unless it needs a sign-in, which only a click should start. */
+export function startBasemap(): BasemapId {
+  const id = storedBasemap();
+  return BASEMAPS.find((b) => b.id === id)?.make ? id : "clear";
+}
+
+export const makeBasemap = (id: BasemapId) => (BASEMAPS.find((b) => b.id === id)?.make ?? clear)();
 
 /** The web map tile at zoom z that contains a point. */
 export function tileAt(lon: number, lat: number, z: number) {
