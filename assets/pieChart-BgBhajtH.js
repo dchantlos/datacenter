@@ -1,1 +1,0 @@
-export{PieChart as PieChartAm5,PieSeries as PieSeriesAm5}from"./percent-DJSin-Gx.js";

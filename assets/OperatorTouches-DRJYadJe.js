@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-4tVxZq34.js";import{B as t,et as n}from"./UnitFactory-Bc9gi4fa.js";var r=e({OperatorTouches:()=>i}),i=class extends n{getOperatorType(){return 5}execute(e,n,r,i){return t(e,n,r,8,i)}};export{i as n,r as t};

@@ -1,1 +1,0 @@
-function e(e){return(!!e).toString()}export{e as t};

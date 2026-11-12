@@ -1,0 +1,1 @@
+import{Nt as e}from"./UnitFactory-Bc9gi4fa.js";var t=new e;function n(e,n){return t.accelerateGeometry(e,n,1)}function r(e,n,r){return t.execute(e,n,r,null)}function i(){return t.supportsCurves()}export{n,r,i as t};

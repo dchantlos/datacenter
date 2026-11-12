@@ -1,0 +1,1 @@
+import{d as e,y as t}from"./typedArrayUtil-CyeYh2x_.js";function n(t){return e(t)&&t.length>=3}function r(e){return(t(e)||Array.isArray(e))&&e.length>=3}function i(e){return n(e)||r(e)}export{i as t};

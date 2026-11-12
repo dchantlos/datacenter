@@ -1,1 +1,0 @@
-import"./apiConverter-Ch2XLifc.js";import"./operatorSimplify-COOVpsI-.js";export{a as execute,r as executeMany,t as isSimple,i as supportsCurves}from"./simplifyOperator-CI_IN7Xf.js";

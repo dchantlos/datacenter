@@ -1,0 +1,1 @@
+import{t as e}from"./catalogUtils-C41BN3ZI.js";import{o as t,s as n}from"./layerUtils-D7XUtd-R.js";function r(e){return typeof e==`object`&&!!e&&`loaded`in e&&e.loaded===!0&&`type`in e}function i(i){return!(!r(i)||!n(i)?.operations?.supportsEditing||`editingEnabled`in i&&!t(i)||e(i))}export{i as t};

@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-4tVxZq34.js";import{t}from"./OperatorDensify-CUbhyeUx.js";var n=e({execute:()=>i,supportsCurves:()=>a}),r=new t;function i(e,t,n,i){return r.execute(e,t,n,i,null)}function a(){return r.supportsCurves()}export{n,i as r,a as t};

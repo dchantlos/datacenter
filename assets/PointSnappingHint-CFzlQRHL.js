@@ -1,0 +1,1 @@
+import{s as e}from"./vec3-DG5QX2aJ.js";import{n as t}from"./LineSnappingHint-BcOGnOth.js";var n=class n extends t{constructor(e,t,n){super(t,n),this.point=e}equals(t){return t instanceof n&&e(this.point,t.point)}};export{n as t};

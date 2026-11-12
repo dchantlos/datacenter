@@ -1,1 +1,0 @@
-function*e(e){switch(e.type){case`object-id`:case`unique-id-simple`:yield e.fieldName;return;case`unique-id-composite`:yield*e.fieldNames;return}}export{e as t};

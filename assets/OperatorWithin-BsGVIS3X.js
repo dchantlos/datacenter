@@ -1,1 +1,0 @@
-import{_ as e,c as t}from"./SpatialReference-DeRBp5Sh.js";var n=class extends e{getOperatorType(){return 7}execute(e,n,r,i){return t(e,n,r,2,i)}};export{n as t};

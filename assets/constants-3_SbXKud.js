@@ -1,0 +1,1 @@
+var e=4096,t=512/4096;export{e as n,t};

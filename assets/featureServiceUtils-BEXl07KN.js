@@ -1,0 +1,1 @@
+import"./string-BpVBm9CH.js";function e(e){let{objectIdField:t,uniqueIdFields:n}=e;return n?.length?n.length>=2?{type:`unique-id-composite`,fieldNames:n}:{type:`unique-id-simple`,fieldName:n[0]}:{type:`object-id`,fieldName:t}}export{e as t};

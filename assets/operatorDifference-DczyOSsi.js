@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-4tVxZq34.js";import"./Point2D-SJBWa_UF.js";import"./MultiPathImpl-BiIUV-Zg.js";import{ot as t}from"./UnitFactory-Bc9gi4fa.js";var n=e({execute:()=>i,supportsCurves:()=>a}),r=new t;function i(e,t,n){return r.execute(e,t,n,null)}function a(){return r.supportsCurves()}export{n,i as r,a as t};

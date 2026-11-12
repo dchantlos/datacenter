@@ -1,0 +1,1 @@
+import"./vec3-DG5QX2aJ.js";import"./floatBlendScale.glsl-BaQhFMcs.js";import"./VertexColor.glsl-nQ4npUUV.js";import"./doublePrecisionUtils-BEDeI1Jm.js";export{n as build}from"./ColorMaterial-C8aTWNv-.js";

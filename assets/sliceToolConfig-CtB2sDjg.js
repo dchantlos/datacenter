@@ -1,0 +1,1 @@
+import{h as e}from"./string-BpVBm9CH.js";import{p as t}from"./mathUtils-8B23-m-L.js";var n=e(`mac`)?`Meta`:`Control`,r=`Shift`,i=1.15,a=1.15,o=2500,s=.02,c=Math.cos(t(45)),l=Math.cos(t(5)),u=.95,d=.3,f=22.5,p=2.25,m=.3,h=1600,g=.4;export{c as a,i as c,o as d,s as f,p as h,a as i,l,u as m,m as n,d as o,n as p,h as r,f as s,g as t,r as u};

@@ -1,0 +1,1 @@
+var e=Symbol(`ImageElementInstance`),t=Symbol(`VideoElementInstance`);function n(t){return typeof t==`object`&&!!t&&e in t}function r(e){return typeof e==`object`&&!!e&&t in e}function i(e){return n(e)||r(e)}export{t as i,i as n,r,e as t};

@@ -1,0 +1,1 @@
+import{l as e}from"./floatBlendScale.glsl-BaQhFMcs.js";var t=class extends e{constructor(e,t,n){super(e,`vec2`,2,(r,i,a,o)=>r.setUniform2fv(e,t(i,a,o),n))}};export{t};

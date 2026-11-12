@@ -1,0 +1,1 @@
+function e(e,t,n){let r=e.parameters.maxTextureSize,{texelStride:i}=t,a=Math.floor(r/i)*r;return Math.min(a,n+1)}function t(t,n,r){return e(t,n,r)*n.byteStride}function n(e){let t=Math.ceil(Math.sqrt(e)),n=Math.ceil(e/t);return{itemCount:t*n,itemWidth:t,itemHeight:n}}export{n,t as r,e as t};

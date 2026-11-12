@@ -1,0 +1,1 @@
+function e(e,t){let n=e.startField===t.startField||!e.startField&&!t.startField,r=e.endField===t.endField||!e.endField&&!t.endField;return n&&r}export{e as t};

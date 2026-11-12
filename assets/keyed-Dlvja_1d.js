@@ -1,0 +1,1 @@
+import{E as e,S as t,T as n,z as r}from"./runtime-BH8lQhCS.js";var i=n(class extends e{constructor(){super(...arguments),this.key=r}render(e,t){return this.key=e,t}update(e,[n,r]){return n!==this.key&&(t(e),this.key=n),r}});export{i as t};

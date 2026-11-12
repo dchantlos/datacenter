@@ -1,0 +1,1 @@
+var e=2**24,t=e-1;export{e as n,t};

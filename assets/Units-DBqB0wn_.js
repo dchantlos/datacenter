@@ -1,0 +1,1 @@
+import{c as e,n as t,t as n}from"./decorators-B0Ozpuuo.js";import{r}from"./tslib.es6-qUHyP9zl.js";var i=class extends e{constructor(e){super(e)}};r([n()],i.prototype,`length`,void 0),r([n()],i.prototype,`verticalLength`,void 0),r([n()],i.prototype,`area`,void 0),r([n()],i.prototype,`volume`,void 0),i=r([t(`esri.views.interactive.support.Units`)],i);var a=i;export{a as t};

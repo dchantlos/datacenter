@@ -1,0 +1,1 @@
+var e=class{},t=new e;export{e as n,t};

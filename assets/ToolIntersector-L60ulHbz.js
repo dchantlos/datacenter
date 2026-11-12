@@ -1,0 +1,1 @@
+import{Ar as e}from"./VertexColor.glsl-nQ4npUUV.js";function t(t){let n=new e(t);return n.options.store=0,n.options.excludeLabels=!0,n}export{t};

@@ -1,0 +1,1 @@
+function e(e){return e?.type===`fill`}function t(e){return e?.type===`extrude`}function n(e){return e?.type===`object`}function r(e){return e?.type===`path`}function i(e){return e?.type===`text`}function a(i){return n(i)||t(i)||e(i)||r(i)}export{t as a,n as i,e as n,i as r,a as t};

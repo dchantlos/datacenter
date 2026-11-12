@@ -1,0 +1,1 @@
+import{h as e}from"./string-BpVBm9CH.js";var t=e(`esri-mobile`)?64:128,n=t/128,r=Math.ceil(Math.sqrt(t)),i=(t+2)*r,a=1e5,o=i/1560;export{i as a,o as i,a as n,n as o,r,t};

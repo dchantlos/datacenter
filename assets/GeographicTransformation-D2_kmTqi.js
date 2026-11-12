@@ -1,0 +1,1 @@
+import"./Point2D-SJBWa_UF.js";export{y as create,G as createFromWKT}from"./UnitFactory-Bc9gi4fa.js";

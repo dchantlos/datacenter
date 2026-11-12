@@ -1,0 +1,1 @@
+import{l as e}from"./handleUtils-Vk04vr1l.js";import{r as t}from"./MapUtils-2IUpWE8u.js";function n(){let n=new WeakMap,r=(e,t)=>{let r=n.get(e);r&&(r.delete(t),r.size===0&&n.delete(e))};return{register(i,a){return t(n,i,()=>new Set).add(a),e(()=>r(i,a))},forEveryOther(e,t,r){let i=n.get(e);if(i)for(let e of i)e!==t&&r(e)}}}export{n as t};
