@@ -1,0 +1,1 @@
+import{D as e,N as t,T as n,k as r}from"./layerUtils-DuBt2lZZ.js";function i(e){return e&&`layer`in e?e.layer:void 0}function a(a){let o=i(a.origin);return t(o)?o=o.findSublayerForFeature(a):(n(o)||r(o))&&e(a.sourceLayer)&&(o=a.sourceLayer),o??a.sourceLayer??a.layer}export{a as t};

@@ -1,0 +1,1 @@
+import{b as e}from"./mathUtils-8B23-m-L.js";import{r as t,s as n}from"./widget-DVkMRpWY.js";import{Dr as r}from"./index-DceI0EmQ.js";function i({level:e,class:i,...o},s){let c=a(e),l=`h${c}`;return t(l,{...o,"aria-level":String(c),class:n(r.heading,i),role:`heading`},s)}function a(t){return e(Math.ceil(t),1,6)}function o(e,t=1){return a(e+t)}export{o as n,i as t};

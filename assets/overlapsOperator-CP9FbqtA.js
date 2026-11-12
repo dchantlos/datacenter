@@ -1,0 +1,1 @@
+import"./deprecatedOperator-Bb-0sNJO.js";import{c as e,r as t}from"./jsonConverter-WBRlmBns.js";import{n}from"./OperatorOverlaps-ByK_zlYR.js";var r=new n;function i(e,t,n){return r.execute(e,t,n,null)}function a(n,r){let a=t(n);return i(a.getGeometry(),e(r),a.getSpatialReference())}export{a as overlapsExecute};

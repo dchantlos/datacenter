@@ -1,0 +1,4 @@
+import{t as e}from"./vec3f64-BCBDKjuM.js";import{t}from"./mat4f64-E_FXCKxO.js";import{E as n,_ as r}from"./mat4-Dqn0x3Z-.js";import{d as i}from"./floatBlendScale.glsl-BaQhFMcs.js";import{n as a}from"./NoParameters-DoG40WO7.js";import{hn as o}from"./VertexColor.glsl-DBvnzl1f.js";import{t as s}from"./CameraSpace.glsl-DWW8AeaH.js";var c=class extends a{constructor(){super(...arguments),this.localOrigin=e()}};function l(e){e.include(s),e.fragment.uniforms.add(new o(`inverseViewMatrix`,(e,t)=>{let i=r(u,t.camera.viewMatrix,e.localOrigin);return n(i,i)})).code.add(i`vec4 reconstructLocalPosition(vec2 coord, float linearDepth) {
+vec4 cameraSpace = vec4(reconstructPosition(coord, linearDepth), 1.0);
+return inverseViewMatrix * cameraSpace;
+}`)}var u=t();export{l as n,c as t};

@@ -1,1 +1,0 @@
-import{r as e}from"./vec3f64-BCBDKjuM.js";import{I as t,M as n,O as r,_ as i}from"./vec3-DG5QX2aJ.js";import{t as a}from"./projectVectorToVector-uy0aZ8Ri.js";function o(e,o,l,u,d){r(s,e),n(c,e,o),a(s,l,s,d),a(c,l,c,d),t(u,c,s),i(u,u)}var s=e(),c=e();export{o as t};

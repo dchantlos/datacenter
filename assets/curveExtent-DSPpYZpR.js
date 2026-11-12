@@ -1,1 +1,0 @@
-import{a as e,l as t,n,t as r}from"./curveUtils-ypvfhNxA.js";import{I as i}from"./aaBoundingRect-B3MT03f7.js";import{O as a,_ as o,d as s,p as c,r as l}from"./ellipticArc7Utils-UYLWPY7o.js";function u(u,d,f){if(t(f))return i(u,d),i(u,f),u;if(e(f))return a(u,d,f);if(r(f)){let e=c(d,f);return o(u,e)}if(n(f)){let e=s(d,f);return o(u,e)}return l(u,d,f)}export{u as t};
